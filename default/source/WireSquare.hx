@@ -1,14 +1,96 @@
+import flixel.FlxSprite;
+import flixel.util.FlxColor;
+import openfl.display.IBitmapDrawable;
+
 using DirUtils;
 
 class Path
 {
 	public var start:Position;
+	public var farbe:Int;
 	public var trajectory:Array<RelativeDir>;
 
-	public function rotate():Path
+	public function maskPoints():LineMask
+	{
+		var end = endPoint();
+
+		var si = -1;
+		var ei = -1;
+		for (i in 0...StartingPoints.length)
+		{
+			var startingPoint = StartingPoints[i];
+			if (start.x == startingPoint.x && start.y == startingPoint.y)
+			{
+				si = i;
+			}
+			if (end.x == startingPoint.x && end.y == startingPoint.y)
+			{
+				ei = i;
+			}
+		}
+
+		return {startIndex: si, endIndex: ei};
+	}
+
+	public function serialize():String
+	{
+		var result = start.x + "," + start.y;
+		for (d in trajectory)
+		{
+			result += ',' + d.getIndex();
+		}
+		return result;
+	}
+
+	public static function deserialize(s:String):Path
+	{
+		var ints = s.split(",").map(Std.parseInt);
+		var start:Position = {x: ints[0], y: ints[1]};
+		ints.splice(0, 2);
+		var trajectory:Array<RelativeDir> = ints.map(i -> RelativeDir.createByIndex(i));
+		return new Path(start, trajectory);
+	}
+
+	public static function comparePaths(a:Path, b:Path):Int
+	{
+		var as = Std.string(a);
+		var bs = Std.string(b);
+
+		if (as > bs)
+		{
+			return 1;
+		}
+		else if (as < bs)
+		{
+			return -1;
+		}
+		else
+		{
+			return 0;
+		}
+	}
+
+	public function flip():Void
+	{
+		start = endPoint();
+		trajectory.reverse();
+		trajectory = trajectory.map(DirUtils.FlipLeftRight);
+	}
+
+	public function rotated():Path
 	{
 		var newStart = {x: 3 - start.y, y: start.x};
-		return new Path(newStart, trajectory.copy());
+		var result = new Path(newStart, trajectory.copy());
+
+		var end = result.endPoint();
+		var start_index = DirUtils.PointIndex(result.start);
+		var end_index = DirUtils.PointIndex(end);
+		if (start_index > end_index)
+		{
+			result.flip();
+		}
+
+		return result;
 	}
 
 	public function new(start:Position, trajectory:Array<RelativeDir>)
@@ -144,7 +226,87 @@ class Path
 
 class WireSquare
 {
+	public var x:Int;
+	public var y:Int;
 	public var paths:Array<Path>;
+
+	public static var verbindung_farben = [0xffca3232, 0xff37946e, 0xffcabb32, 0xff37946e, 0xff000000];
+
+	public function makeGraphic():FlxSprite
+	{
+		var s = new FlxSprite(0, 0);
+		var key = serialize();
+		s.makeGraphic(7, 7, FlxColor.TRANSPARENT, false, key);
+
+		var colors = [0xffac3232, 0xffd95763, 0xffd77bba, 0xff76428a];
+		var bmd = s.pixels;
+
+		for (i in 0...this.paths.length)
+		{
+			var path = this.paths[i];
+			var trajectory = path.trajectoryPoints();
+			for (j in 0...(trajectory.length - 1))
+			{
+				var p = trajectory[j];
+				var q = trajectory[j + 1];
+
+				bmd.setPixel32(2 * p.x, 2 * p.y, 0xff000000);
+				bmd.setPixel32(Math.round((2 * p.x + 2 * q.x) / 2), Math.round((2 * p.y + 2 * q.y) / 2), 0xff000000);
+				bmd.setPixel32(2 * q.x, 2 * q.y, 0xff000000);
+
+				var dx = q.x - p.x;
+				var dy = q.y - p.y;
+
+				var left_x = q.x - dy;
+				var left_y = q.y + dx;
+
+				var right_x = q.x + dy;
+				var right_y = q.y - dx;
+
+				var left_pixel = bmd.getPixel32(Math.round((2 * left_x + 2 * q.x) / 2), Math.round((2 * left_y + 2 * q.y) / 2));
+				var right_pixel = bmd.getPixel32(Math.round((2 * right_x + 2 * q.x) / 2), Math.round((2 * right_y + 2 * q.y) / 2));
+				trace(StringTools.hex(left_pixel, 8), StringTools.hex(right_pixel, 8));
+				if (left_pixel == 0xff000000)
+				{
+					bmd.setPixel32(Math.round((2 * left_x + 2 * q.x) / 2), Math.round((2 * left_y + 2 * q.y) / 2), 0xff546772);
+				}
+				if (right_pixel == 0xff000000)
+				{
+					bmd.setPixel32(Math.round((2 * right_x + 2 * q.x) / 2), Math.round((2 * right_y + 2 * q.y) / 2), 0xff546772);
+				}
+			}
+		}
+
+		return s;
+	}
+
+	public function serialize():String
+	{
+		var result = paths[0].serialize();
+		for (p in paths)
+		{
+			result += ":" + p.serialize();
+		}
+		return result;
+	}
+
+	public static function deserialize(s:String):WireSquare
+	{
+		var paths = s.split(":").map(Path.deserialize);
+		return new WireSquare(paths);
+	}
+
+	public function rotated():WireSquare
+	{
+		var newpaths:Array<Path> = [];
+		for (p in paths)
+		{
+			var rotated = p.rotated();
+			newpaths.push(rotated);
+		}
+		newpaths.sort(Path.comparePaths);
+		return new WireSquare(newpaths);
+	}
 
 	public function toString():String
 	{
@@ -181,15 +343,80 @@ class WireSquare
 		for (i in 0...paths.length)
 		{
 			var path = paths[i];
-			result += Std.string(path) + "\n";
+			result += Std.string(path.start.x) + "," + Std.string(path.start.y) + " : " + Std.string(path.trajectory) + "\n";
 		}
 
+		result += "\n\n" + this.calculateMask();
 		return result;
 	}
 
 	public function new(paths:Array<Path>)
 	{
+		this.x = 0;
+		this.y = 0;
 		this.paths = paths;
+	}
+
+	public function complexity():Int
+	{
+		var result = 0;
+		for (p in paths)
+		{
+			result += 10 * p.trajectory.length;
+			for (entry in p.trajectory)
+			{
+				if (entry == left || entry == right)
+				{
+					result++;
+				}
+			}
+		}
+		return result;
+	}
+
+	public function calculateMask():String
+	{
+		var maskarray = [-1, -1, -1, -1, -1, -1, -1, -1];
+		var lineMasks = paths.map(function(p) return p.maskPoints());
+		for (i in 0...lineMasks.length)
+		{
+			var lm = lineMasks[i];
+			var min = lm.startIndex < lm.endIndex ? lm.startIndex : lm.endIndex;
+			maskarray[lm.startIndex] = min;
+			maskarray[lm.endIndex] = min;
+		}
+		var result = "";
+		for (n in maskarray)
+		{
+			if (n == -1)
+			{
+				result += ".";
+			}
+			else
+			{
+				result += Std.string(n);
+			}
+		}
+		return result;
+	}
+
+	public static function compareMasks(a:WireSquare, b:WireSquare):Int
+	{
+		var as = a.calculateMask();
+		var bs = b.calculateMask();
+
+		if (as > bs)
+		{
+			return 1;
+		}
+		else if (as < bs)
+		{
+			return -1;
+		}
+		else
+		{
+			return 0;
+		}
 	}
 
 	public function isValid():Bool
@@ -231,15 +458,18 @@ class WireSquare
 		return result;
 	}
 
-	public static function GenerateAll():Void
+	public static function GenerateAll():Array<WireSquare>
 	{
 		var possible_trajectories:Array<Array<RelativeDir>> = [];
 
+		// var testWire = new Path({x: 1, y: 0}, [left, left, left]);
+		// trace(testWire.isValid());
+		// var testWireSquare1 = new WireSquare([new Path({x: 1, y: 0}, [left, forward)]);
+		// var testWireSquare2 = new WireSquare([new Path({x: 1, y: 0}, [forward, right)]);
 		for (n in 1...5)
 		{
 			possible_trajectories = possible_trajectories.concat(GenerateAllTrajectoriesOfLength(n));
 		}
-
 		var validPaths:Array<Path> = [];
 
 		for (sP in Path.StartingPoints)
@@ -247,20 +477,19 @@ class WireSquare
 			for (trajectory in possible_trajectories)
 			{
 				var path = new Path(sP, trajectory);
+
 				if (path.isValid())
 				{
 					validPaths.push(path);
 				}
 			}
 		}
-
-		for (path in validPaths)
-		{
-			trace(path);
-			trace(path.trajectoryPoints());
-		}
+		// for (path in validPaths)
+		// {
+		// 	trace(path);
+		// 	trace(path.trajectoryPoints());
+		// }
 		trace("NUMBER OF PATHS " + validPaths.length);
-
 		var allCombinationsOfPaths = validPaths.map(function(path) return [path]);
 
 		var pathSetsOfSizeN_minus_one = allCombinationsOfPaths.copy();
@@ -275,27 +504,97 @@ class WireSquare
 				{
 					if (pathSetOfSizeN_minus_one.indexOf(path) == -1)
 					{
-						var pathSetOfSizeN = pathSetOfSizeN_minus_one.copy();
-						pathSetOfSizeN.push(path);
-						pathSetsOfSizeN.push(pathSetOfSizeN);
+						if (Path.comparePaths(path, pathSetOfSizeN_minus_one[pathSetOfSizeN_minus_one.length - 1]) > 0)
+						{
+							var pathSetOfSizeN = pathSetOfSizeN_minus_one.copy();
+
+							pathSetOfSizeN.push(path);
+							pathSetOfSizeN.sort(Path.comparePaths);
+							pathSetsOfSizeN.push(pathSetOfSizeN);
+						}
 					}
 				}
 			}
 			allCombinationsOfPaths = allCombinationsOfPaths.concat(pathSetsOfSizeN);
 			pathSetsOfSizeN_minus_one = pathSetsOfSizeN;
 		}
-		// for (path in validPaths)
-		// {
-		// 	trace(allCombinationsOfPaths);
-		// }
-
+		for (path in validPaths)
+		{
+			// trace(path);
+		}
 		var allPossibleWireSquares = allCombinationsOfPaths.map(function(pathset) return new WireSquare(pathset));
+
 		trace("NUMBER OF PATH SETS " + allPossibleWireSquares.length);
 		allPossibleWireSquares = allPossibleWireSquares.filter(function(wireSquare) return wireSquare.isValid());
+
 		for (wireSquare in allPossibleWireSquares)
 		{
-			trace(wireSquare.toString());
+			// trace(".\n" + wireSquare.toString());
 		}
 		trace("NUMBER OF PATH SETS (filtered) " + allPossibleWireSquares.length);
+		var maskDictionary:Map<String, WireSquare> = [];
+		for (wireSquare in allPossibleWireSquares)
+		{
+			var mask = wireSquare.calculateMask();
+			if (maskDictionary.exists(mask))
+			{
+				var newComplexity = wireSquare.complexity();
+				var old = maskDictionary[mask];
+				var oldComplexity = old.complexity();
+
+				if (oldComplexity > newComplexity)
+				{
+					maskDictionary[mask] = wireSquare;
+				}
+			}
+			else
+			{
+				maskDictionary[mask] = wireSquare;
+			}
+		}
+		allPossibleWireSquares = [];
+		for (value in maskDictionary)
+		{
+			allPossibleWireSquares.push(value);
+		}
+		for (wireSquare in allPossibleWireSquares)
+		{
+			trace(".\n" + wireSquare.toString());
+		}
+		trace("NUMBER OF PATH SETS (filtered by parsimony) " + allPossibleWireSquares.length);
+		// normalise rotation values and filter thereby
+		maskDictionary = [];
+		for (wireSquare in allPossibleWireSquares)
+		{
+			var wireSquares:Array<WireSquare> = [wireSquare];
+
+			for (i in 0...3)
+			{
+				wireSquares.push(wireSquares[wireSquares.length - 1].rotated());
+			}
+			wireSquares.sort(WireSquare.compareMasks);
+			var normalisedWireSquare = wireSquares[0];
+			var mask = normalisedWireSquare.calculateMask();
+
+			if (maskDictionary.exists(mask))
+			{
+				var old = maskDictionary[mask];
+			}
+			else
+			{
+				maskDictionary[mask] = wireSquare;
+			}
+		}
+		allPossibleWireSquares = [];
+		for (value in maskDictionary)
+		{
+			allPossibleWireSquares.push(value);
+		}
+		for (wireSquare in allPossibleWireSquares)
+		{
+			trace(".\n" + wireSquare.toString());
+		}
+		trace("NUMBER OF PATH SETS (normalising rotation) " + allPossibleWireSquares.length);
+		return allPossibleWireSquares;
 	}
 }

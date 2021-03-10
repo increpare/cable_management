@@ -14,6 +14,12 @@ enum AbsoluteDir
 	west;
 }
 
+typedef LineMask =
+{
+	var startIndex:Int;
+	var endIndex:Int;
+}
+
 typedef Position =
 {
 	var x:Int;
@@ -33,7 +39,20 @@ class DirUtils
 		return 4 * pos.y + pos.x;
 	}
 
-	public static function RotateRelativeDir(rel:RelativeDir) {}
+	public static function FlipLeftRight(rel:RelativeDir):RelativeDir
+	{
+		switch (rel)
+		{
+			case forward:
+				return forward;
+			case back:
+				return back;
+			case left:
+				return right;
+			case right:
+				return left;
+		}
+	}
 
 	public static function AbsoluteDirectionToPositionOffset(abs:AbsoluteDir):PositionOffset
 	{
@@ -44,9 +63,9 @@ class DirUtils
 			case south:
 				return {x: 0, y: 1};
 			case east:
-				return {x: 0, y: 1};
+				return {x: 1, y: 0};
 			case west:
-				return {x: 0, y: -1};
+				return {x: -1, y: 0};
 		}
 	}
 
