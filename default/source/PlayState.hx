@@ -25,7 +25,7 @@ class PlayState extends FlxState
 	var brett_breite:Int = 63;
 	var brett_hoehe:Int = 56;
 
-	var raster_breite:Int = 9;
+	var raster_breite:Int = 12;
 	var raster_hoehe:Int = 8;
 
 	private var kabelkacheln:Array<WireSquare> = [
@@ -115,6 +115,9 @@ class PlayState extends FlxState
 	var unmutedBtn:FlxIconButton;
 	var helpBtn:FlxIconButton;
 
+	var drehBtn:FlxIconButton;
+	var gummiBtn:FlxMySpriteButton;
+
 	private function updateMuteUI()
 	{
 		mutedBtn.visible = FlxG.sound.muted;
@@ -127,9 +130,12 @@ class PlayState extends FlxState
 	var ausgewaehlterKachel_Spr:FlxSprite;
 	var ausgewaehlterKachel:KachelInhalt;
 
+	var ausgewaehlterKachelIndex:Int = -1;
+
 	private function onKachelAuswahl(i:Int)
 	{
 		trace(i);
+		ausgewaehlterKachelIndex = i;
 		for (k in 0...auswahltasten_ausgewaehlt.length)
 		{
 			if (k == i)
@@ -168,43 +174,44 @@ class PlayState extends FlxState
 		_bg = new FlxSprite(0, 0, "assets/images/bg.png");
 		add(_bg);
 
-		makeSaleBtn = new FlxBitmapTextButtonLowRes(83, 40, "Make Sale", onMakeSale);
+		makeSaleBtn = new FlxBitmapTextButtonLowRes(104, 40, "Make Sale", onMakeSale);
 		makeSaleBtn.label.font = TitleScreen.fontAngelCode;
 		makeSaleBtn.color = PlayState.COL_BG;
 
 		add(makeSaleBtn);
 
-		addPartBtn = new FlxBitmapTextButtonLowRes(83, 56, "Add extra part", onAddPart);
+		addPartBtn = new FlxBitmapTextButtonLowRes(104, 56, "Add extra part", onAddPart);
 		addPartBtn.label.font = TitleScreen.fontAngelCode;
 		addPartBtn.color = PlayState.COL_BG;
 		add(addPartBtn);
 
-		exitBtn = new FlxIconButton(164, 1, "assets/images/audio_icon_exit.png", 12, 12, onExitClick);
+		exitBtn = new FlxIconButton(185, 1, "assets/images/audio_icon_exit.png", 12, 12, onExitClick);
 		exitBtn.color = PlayState.COL_BG;
 		add(exitBtn);
 
-		mutedBtn = new FlxIconButton(164, 14, "assets/images/audio_icon_muted.png", 12, 12, onMutedClick);
+		mutedBtn = new FlxIconButton(185, 14, "assets/images/audio_icon_muted.png", 12, 12, onMutedClick);
 		mutedBtn.color = PlayState.COL_BG;
 		add(mutedBtn);
 
-		unmutedBtn = new FlxIconButton(164, 14, "assets/images/audio_icon_unmuted.png", 12, 12, onUnmutedClick);
+		unmutedBtn = new FlxIconButton(185, 14, "assets/images/audio_icon_unmuted.png", 12, 12, onUnmutedClick);
 		unmutedBtn.color = PlayState.COL_BG;
 		add(unmutedBtn);
 
-		helpBtn = new FlxIconButton(164, 27, "assets/images/audio_icon_help.png", 12, 12, onHelpClick);
+		helpBtn = new FlxIconButton(185, 27, "assets/images/audio_icon_help.png", 12, 12, onHelpClick);
 		helpBtn.color = PlayState.COL_BG;
 		add(helpBtn);
 
 		updateMuteUI();
 
 		highlightSprites_yx = [];
-		for (j in 0...brett_hoehe)
+		for (j in 0...raster_hoehe)
 		{
 			var zeile:Array<FlxSprite> = [];
-			for (i in 0...brett_breite)
+			for (i in 0...raster_breite)
 			{
 				var s = new FlxSprite(brett_ox + i * kachel_breite, brett_oy + j * kachel_hoehe);
 				s.makeGraphic(kachel_breite, kachel_hoehe, FlxColor.WHITE);
+				s.alpha = 0.2;
 				add(s);
 				zeile.push(s);
 			}
@@ -217,25 +224,12 @@ class PlayState extends FlxState
 		komponentText.color = FlxColor.BLACK;
 		add(komponentText);
 
-		komponent = Komponent.vonSilhouette("CPU", 100, "111|001", [1, 1, -1, 2, -2]);
-		var komponentTaste_img = new FlxSprite(19, 14);
-		komponentTaste_img.makeGraphic(komponent.breite * 7, komponent.hoehe * 7, FlxColor.TRANSPARENT, true);
-		var kt_bmd = komponentTaste_img.pixels;
+		komponent = Komponent.vonSilhouette("CPU", 100, "10|10|11", [1, 1, -1, 2, -2]);
 
-		var komponentTaste_ausgewaehlt_img = new FlxSprite(19, 14);
-		komponentTaste_ausgewaehlt_img.makeGraphic(komponent.breite * 7, komponent.hoehe * 7, FlxColor.TRANSPARENT, true);
-		var kt_agw_bmd = komponentTaste_ausgewaehlt_img.pixels;
-
-		for (kachel in komponent.kacheln)
-		{
-			kachel.drawToGraphic(kt_bmd, 7 * kachel.offset.x, 7 * kachel.offset.y);
-			kachel.drawToGraphic(kt_agw_bmd, 7 * kachel.offset.x, 7 * kachel.offset.y);
-		}
-
-		komponentTaste_ausgewaehlt = new FlxMySpriteSelectedButton(17, 12, 25, 25, komponentTaste_ausgewaehlt_img, "assets/images/sprite_btn_bg_big.png");
+		komponentTaste_ausgewaehlt = new FlxMySpriteSelectedButton(17, 12, 25, 25, komponent.render(), "assets/images/sprite_btn_bg_big.png");
 		add(komponentTaste_ausgewaehlt);
 		auswahltasten_ausgewaehlt.push(komponentTaste_ausgewaehlt);
-		komponentTaste = new FlxMySpriteButton(17, 12, 25, 25, komponentTaste_img, "assets/images/sprite_btn_bg_big.png", () -> onKachelAuswahl(0));
+		komponentTaste = new FlxMySpriteButton(17, 12, 25, 25, komponent.render(), "assets/images/sprite_btn_bg_big.png", () -> onKachelAuswahl(0));
 		add(komponentTaste);
 		auswahltasten.push(komponentTaste);
 
@@ -266,13 +260,62 @@ class PlayState extends FlxState
 			auswahltasten.push(schaltflaeche);
 		}
 
-		zustand = new Zustand(9, 8);
+		drehBtn = new FlxIconButton(43 + 12 * kacheltasten.length, 26, "assets/images/audio_icon_turn.png", 11, 11, onDrehClick);
+		add(drehBtn);
+
+		var schaltflaeche_gummi_ausgewaehlt = new FlxMySpriteSelectedButton(43 + 12 * kacheltasten.length + 12, 26, 11, 11,
+			new FlxSprite(0, 0, "assets/images/gummi_sprite.png"), "assets/images/sprite_btn_bg_small.png");
+
+		add(schaltflaeche_gummi_ausgewaehlt);
+		auswahltasten_ausgewaehlt.push(schaltflaeche_gummi_ausgewaehlt);
+
+		gummiBtn = new FlxMySpriteButton(43 + 12 * kacheltasten.length + 12, 26, 11, 11, new FlxSprite(0, 0, "assets/images/gummi_sprite.png"),
+			"assets/images/sprite_btn_bg_small.png", () -> onKachelAuswahl(4));
+		add(gummiBtn);
+		auswahltasten.push(gummiBtn);
+
+		zustand = new Zustand(raster_breite, raster_hoehe);
 
 		onKachelAuswahl(1);
 	}
 
 	public var zustand:Zustand;
 	public var highlightSprites_yx:Array<Array<FlxSprite>>;
+
+	private function onDrehClick():Void
+	{
+		kachelleiste = kachelleiste.map(k -> k.dreh());
+
+		kacheltasten = kachelleiste.map(ws -> ws.makeGraphic());
+		kacheltasten_ausgewaehlt = kachelleiste.map(ws -> ws.makeGraphic());
+
+		for (i => kt in kacheltasten)
+		{
+			auswahltasten[i + 1].label.loadGraphicFromSprite(kachelleiste[i].makeGraphic());
+			auswahltasten_ausgewaehlt[i + 1].members[1].loadGraphicFromSprite(kachelleiste[i].makeGraphic());
+		}
+
+		komponent = komponent.dreh();
+		komponentTaste.label.loadGraphicFromSprite(komponent.render());
+		komponentTaste.zentriere_Sprite();
+		komponentTaste_ausgewaehlt.members[1].loadGraphicFromSprite(komponent.render());
+		komponentTaste_ausgewaehlt.zentriere_Sprite();
+		// komponentTaste_ausgewaehlt.members[1].loadGraphicFromSprite(komponentTaste_ausgewaehlt_img);
+		// komponentTaste.label.loadGraphicFromSprite(komponentTas);
+
+		ausgewaehlterKachel_Spr.loadGraphicFromSprite(auswahltasten[ausgewaehlterKachelIndex].label);
+
+		if (ausgewaehlterKachelIndex == 0)
+		{
+			ausgewaehlterKachel = Komponent(komponent);
+		}
+		else
+		{
+			ausgewaehlterKachel = WireSquare(kachelleiste[ausgewaehlterKachelIndex]);
+		}
+	}
+
+	private function onGummiClick():Void {}
 
 	override public function update(elapsed:Float)
 	{
@@ -284,21 +327,22 @@ class PlayState extends FlxState
 		var rx = Math.floor((mx - brett_ox) / kachel_breite);
 		var ry = Math.floor((my - brett_oy) / kachel_hoehe);
 
-		switch (ausgewaehlterKachel)
-		{
-			case WireSquare(w):
-			case Komponent(k):
-				rx -= Math.floor((k.breite - 1) / 2);
-				ry -= Math.floor((k.hoehe - 1) / 2);
-				k.x = rx;
-				k.y = ry;
-				zustand.fitKomponent(k);
-				rx = k.x;
-				ry = k.y;
-			case Leer:
-		}
 		if (zustand.enthieltPunkt(rx, ry))
 		{
+			switch (ausgewaehlterKachel)
+			{
+				case WireSquare(w):
+				case Komponent(k):
+					rx -= Math.floor((k.breite - 1) / 2);
+					ry -= Math.floor((k.hoehe - 1) / 2);
+					k.x = rx;
+					k.y = ry;
+					zustand.fitKomponent(k);
+					rx = k.x;
+					ry = k.y;
+				case Leer:
+			}
+
 			mx = rx * kachel_breite + brett_ox;
 			my = ry * kachel_hoehe + brett_oy;
 

@@ -14,6 +14,17 @@ class KomponentKachel
 	public var connections:Array<Int>; // clockwise from left side of top. negative input, positive output.
 	public var offset:Position;
 
+	public function dreh(breite:Int, hoehe:Int):KomponentKachel
+	{
+		var newConnections = new Array<Int>();
+		for (i in 0...connections.length)
+		{
+			newConnections.push(connections[(i + 2) % connections.length]);
+		}
+		var newOffset = {x: offset.y, y: breite - offset.x - 1};
+		return new KomponentKachel(newConnections, newOffset);
+	}
+
 	public function serialize():String
 	{
 		return Std.string(connections) + ":" + offset.x + "," + offset.y;
@@ -115,6 +126,18 @@ class Komponent
 		return x >= this.x && y >= this.y && x < this.x + breite && y < this.y + hoehe;
 	}
 
+	public function dreh():Komponent
+	{
+		var newX:Int = 0;
+		var newY:Int = 0;
+		var newBreite:Int = hoehe;
+		var newHoehe:Int = breite;
+		var newKacheln = kacheln.map(k -> k.dreh(breite, hoehe));
+		var newName = name;
+		var newWert = wert;
+		return new Komponent(newName, newWert, newKacheln);
+	}
+
 	private static function shuffleArray<T>(ar:Array<T>):Void
 	{
 		var rand = new FlxRandom();
@@ -131,6 +154,19 @@ class Komponent
 			ar[i] = ar[j];
 			ar[j] = el;
 		}
+	}
+
+	public function render():FlxSprite
+	{
+		var result = new FlxSprite(0, 0);
+		result.makeGraphic(breite * 7, hoehe * 7, FlxColor.TRANSPARENT, true);
+		var bmd = result.pixels;
+
+		for (kachel in kacheln)
+		{
+			kachel.drawToGraphic(bmd, 7 * kachel.offset.x, 7 * kachel.offset.y);
+		}
+		return result;
 	}
 
 	public function new(name:String, wert:Int, kacheln:Array<KomponentKachel>)

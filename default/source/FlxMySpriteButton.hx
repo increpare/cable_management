@@ -1,4 +1,5 @@
 import flixel.FlxSprite;
+import flixel.math.FlxPoint;
 import flixel.system.FlxAssets.FlxGraphicAsset;
 import flixel.text.FlxBitmapText;
 import flixel.text.FlxText.FlxTextAlign;
@@ -20,6 +21,25 @@ class FlxMySpriteButton extends FlxTypedButton<FlxSprite>
 		}
 
 		this.label = sprite;
+	}
+
+	public function zentriere_Sprite():Void
+	{
+		var sprite = this.label;
+		var w = this.width;
+		var h = this.height;
+
+		this.labelOffsets = [FlxPoint.get(), FlxPoint.get(), FlxPoint.get(0, 1)];
+		// for (point in this.labelOffsets)
+		// 	point.set(point.x - 1, point.y + 3);
+
+		for (offset in this.labelOffsets)
+		{
+			offset.x += (w / 2) - sprite.width / 2;
+			offset.y += (h / 2) - sprite.height / 2;
+		}
+
+		resetHelpers();
 	}
 
 	/**

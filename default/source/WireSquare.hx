@@ -1,5 +1,6 @@
 import flixel.FlxSprite;
 import flixel.util.FlxColor;
+import lime.text.harfbuzz.HBGlyphPosition;
 import openfl.display.IBitmapDrawable;
 
 using DirUtils;
@@ -9,6 +10,14 @@ class Path
 	public var start:Position;
 	public var farbe:Int;
 	public var trajectory:Array<RelativeDir>;
+
+	public function dreh():Path
+	{
+		var newStart:Position = {x: start.y, y: 3 - start.x};
+		var newFarbe = farbe;
+		var newTrajectory = trajectory.copy();
+		return new Path(newStart, newTrajectory, farbe);
+	}
 
 	public function maskPoints():LineMask
 	{
@@ -93,10 +102,11 @@ class Path
 		return result;
 	}
 
-	public function new(start:Position, trajectory:Array<RelativeDir>)
+	public function new(start:Position, trajectory:Array<RelativeDir>, farbe:Int = -1)
 	{
 		this.start = start;
 		this.trajectory = trajectory;
+		this.farbe = farbe;
 	}
 
 	public function endPoint():Position
@@ -231,6 +241,12 @@ class WireSquare
 	public var paths:Array<Path>;
 
 	public static var verbindung_farben = [0xffca3232, 0xff37946e, 0xffcabb32, 0xff37946e, 0xff000000];
+
+	public function dreh():WireSquare
+	{
+		var newPaths = paths.map(p -> p.dreh());
+		return new WireSquare(newPaths);
+	}
 
 	public function makeGraphic():FlxSprite
 	{

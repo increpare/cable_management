@@ -23,4 +23,18 @@ class FlxMySpriteSelectedButton extends FlxTypedGroup<FlxSprite>
 		sprite.y = Y + (h / 2) - sprite.height / 2;
 		add(sprite);
 	}
+
+	public function zentriere_Sprite():Void
+	{
+		var bg = members[0];
+		var sprite = members[1];
+
+		var X = bg.x;
+		var Y = bg.y;
+		var w = bg.width;
+		var h = bg.height;
+
+		sprite.x = X + (w / 2) - sprite.width / 2;
+		sprite.y = Y + (h / 2) - sprite.height / 2;
+	}
 }
