@@ -1,5 +1,8 @@
 package;
 
+import DirUtils.Position;
+import KachelInhalt.KachelZustand;
+import Komponent.KomponentKachel;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.FlxState;
@@ -19,14 +22,14 @@ class PlayState extends FlxState
 	var brett_ox:Int = 18;
 	var brett_oy:Int = 39;
 
-	var kachel_breite:Int = 7;
-	var kachel_hoehe:Int = 7;
+	public static inline var kachel_breite:Int = 7;
+	public static inline var kachel_hoehe:Int = 7;
 
-	var brett_breite:Int = 63;
-	var brett_hoehe:Int = 56;
+	public static inline var brett_breite:Int = 63;
+	public static inline var brett_hoehe:Int = 56;
 
-	var raster_breite:Int = 12;
-	var raster_hoehe:Int = 8;
+	public static inline var raster_breite:Int = 12;
+	public static inline var raster_hoehe:Int = 8;
 
 	private var kabelkacheln:Array<WireSquare> = [
 		"1,0,3:1,0,3", "1,0,0,0:1,0,0,0", "1,0,0,3:1,0,0,3", "1,0,2,2:1,0,2,2", "1,0,0,2,0:1,0,0,2,0", "1,0,0,2,3:1,0,0,2,3", "2,0,0,2:2,0,0,2",
@@ -90,7 +93,22 @@ class PlayState extends FlxState
 
 	private function onMakeSale() {}
 
-	private function onAddPart() {}
+	private function onAddPart()
+	{
+		zustand.Inhalt = zustand.Inhalt.map(ki ->
+		{
+			switch (ki)
+			{
+				case WireSquare(w, z):
+					return KachelInhalt.WireSquare(w, Fest);
+				case Komponent(k, z):
+					return KachelInhalt.Komponent(k, Fest);
+				case Leer:
+					return KachelInhalt.Leer;
+			}
+		});
+		zustand.render(zustandSprite.pixels, ausgewaehlterKachelIndex == 0);
+	}
 
 	private function onMutedClick()
 	{
@@ -114,9 +132,9 @@ class PlayState extends FlxState
 	var mutedBtn:FlxIconButton;
 	var unmutedBtn:FlxIconButton;
 	var helpBtn:FlxIconButton;
-
 	var drehBtn:FlxIconButton;
 	var gummiBtn:FlxMySpriteButton;
+	var zustandSprite:FlxSprite;
 
 	private function updateMuteUI()
 	{
@@ -126,10 +144,8 @@ class PlayState extends FlxState
 
 	var auswahltasten:Array<FlxMySpriteButton> = [];
 	var auswahltasten_ausgewaehlt:Array<FlxMySpriteSelectedButton> = [];
-
 	var ausgewaehlterKachel_Spr:FlxSprite;
 	var ausgewaehlterKachel:KachelInhalt;
-
 	var ausgewaehlterKachelIndex:Int = -1;
 
 	private function onKachelAuswahl(i:Int)
@@ -157,12 +173,13 @@ class PlayState extends FlxState
 
 		if (i == 0)
 		{
-			ausgewaehlterKachel = Komponent(komponent);
+			ausgewaehlterKachel = Komponent(komponent, Geplant);
 		}
 		else
 		{
-			ausgewaehlterKachel = WireSquare(kachelleiste[i - 1]);
+			ausgewaehlterKachel = WireSquare(kachelleiste[i - 1], Geplant);
 		}
+		zustand.render(zustandSprite.pixels, ausgewaehlterKachelIndex == 0);
 	}
 
 	override public function create()
@@ -203,6 +220,12 @@ class PlayState extends FlxState
 
 		updateMuteUI();
 
+		zustand = new Zustand(raster_breite, raster_hoehe);
+		zustandSprite = new FlxSprite(18, 39);
+		zustandSprite.makeGraphic(raster_breite * kachel_breite, raster_hoehe * kachel_hoehe, FlxColor.TRANSPARENT, false, "zustandsprite");
+		zustandSprite.pixels.fillRect(zustandSprite.pixels.rect, FlxColor.TRANSPARENT);
+		add(zustandSprite);
+
 		highlightSprites_yx = [];
 		for (j in 0...raster_hoehe)
 		{
@@ -224,7 +247,7 @@ class PlayState extends FlxState
 		komponentText.color = FlxColor.BLACK;
 		add(komponentText);
 
-		komponent = Komponent.vonSilhouette("CPU", 100, "10|10|11", [1, 1, -1, 2, -2]);
+		komponent = Komponent.vonSilhouette("CPU", 100, "10|10|11", [1, 1, -1, 2, -2], true);
 
 		komponentTaste_ausgewaehlt = new FlxMySpriteSelectedButton(17, 12, 25, 25, komponent.render(), "assets/images/sprite_btn_bg_big.png");
 		add(komponentTaste_ausgewaehlt);
@@ -260,7 +283,7 @@ class PlayState extends FlxState
 			auswahltasten.push(schaltflaeche);
 		}
 
-		drehBtn = new FlxIconButton(43 + 12 * kacheltasten.length, 26, "assets/images/audio_icon_turn.png", 11, 11, onDrehClick);
+		drehBtn = new FlxIconButton(43 + 12 * kacheltasten.length, 26, "assets/images/audio_icon_turn.png", 11, 11, () -> onDrehClick(true));
 		add(drehBtn);
 
 		var schaltflaeche_gummi_ausgewaehlt = new FlxMySpriteSelectedButton(43 + 12 * kacheltasten.length + 12, 26, 11, 11,
@@ -274,32 +297,46 @@ class PlayState extends FlxState
 		add(gummiBtn);
 		auswahltasten.push(gummiBtn);
 
-		zustand = new Zustand(raster_breite, raster_hoehe);
-
 		onKachelAuswahl(1);
 	}
 
 	public var zustand:Zustand;
 	public var highlightSprites_yx:Array<Array<FlxSprite>>;
 
-	private function onDrehClick():Void
+	public function getInhaltMask(ki:KachelInhalt):Array<Position>
 	{
-		kachelleiste = kachelleiste.map(k -> k.dreh());
-
-		kacheltasten = kachelleiste.map(ws -> ws.makeGraphic());
-		kacheltasten_ausgewaehlt = kachelleiste.map(ws -> ws.makeGraphic());
-
-		for (i => kt in kacheltasten)
+		switch (ki)
 		{
-			auswahltasten[i + 1].label.loadGraphicFromSprite(kachelleiste[i].makeGraphic());
-			auswahltasten_ausgewaehlt[i + 1].members[1].loadGraphicFromSprite(kachelleiste[i].makeGraphic());
+			case WireSquare(w, z):
+				return [{x: w.x, y: w.y}];
+			case Komponent(k, z):
+				return k.kacheln.map(kk -> {x: kk.offset.x + k.x, y: kk.offset.y + k.y});
+			case Leer:
+				return [];
+		}
+	}
+
+	private function onDrehClick(?dir:Bool = true):Void
+	{
+		if (ausgewaehlterKachelIndex == 0)
+		{
+			komponent = komponent.dreh(dir);
+			komponentTaste.label.loadGraphicFromSprite(komponent.render());
+			komponentTaste.zentriere_Sprite();
+			komponentTaste_ausgewaehlt.members[1].loadGraphicFromSprite(komponent.render());
+			komponentTaste_ausgewaehlt.zentriere_Sprite();
+		}
+		else
+		{
+			kachelleiste[ausgewaehlterKachelIndex - 1] = kachelleiste[ausgewaehlterKachelIndex - 1].dreh(dir);
+
+			kacheltasten[ausgewaehlterKachelIndex - 1] = kachelleiste[ausgewaehlterKachelIndex - 1].makeGraphic();
+			kacheltasten_ausgewaehlt[ausgewaehlterKachelIndex - 1] = kachelleiste[ausgewaehlterKachelIndex - 1].makeGraphic();
+
+			auswahltasten[ausgewaehlterKachelIndex].label.loadGraphicFromSprite(kachelleiste[ausgewaehlterKachelIndex - 1].makeGraphic());
+			auswahltasten_ausgewaehlt[ausgewaehlterKachelIndex].members[1].loadGraphicFromSprite(kachelleiste[ausgewaehlterKachelIndex - 1].makeGraphic());
 		}
 
-		komponent = komponent.dreh();
-		komponentTaste.label.loadGraphicFromSprite(komponent.render());
-		komponentTaste.zentriere_Sprite();
-		komponentTaste_ausgewaehlt.members[1].loadGraphicFromSprite(komponent.render());
-		komponentTaste_ausgewaehlt.zentriere_Sprite();
 		// komponentTaste_ausgewaehlt.members[1].loadGraphicFromSprite(komponentTaste_ausgewaehlt_img);
 		// komponentTaste.label.loadGraphicFromSprite(komponentTas);
 
@@ -307,15 +344,28 @@ class PlayState extends FlxState
 
 		if (ausgewaehlterKachelIndex == 0)
 		{
-			ausgewaehlterKachel = Komponent(komponent);
+			ausgewaehlterKachel = Komponent(komponent, Geplant);
 		}
 		else
 		{
-			ausgewaehlterKachel = WireSquare(kachelleiste[ausgewaehlterKachelIndex]);
+			ausgewaehlterKachel = WireSquare(kachelleiste[ausgewaehlterKachelIndex - 1], Geplant);
 		}
 	}
 
 	private function onGummiClick():Void {}
+
+	public inline function copyInhalt(ki:KachelInhalt):KachelInhalt
+	{
+		switch (ki)
+		{
+			case WireSquare(w, z):
+				return WireSquare(w.copy(), z);
+			case Komponent(k, z):
+				return Komponent(k.copy(), z);
+			case Leer:
+				return Leer;
+		}
+	}
 
 	override public function update(elapsed:Float)
 	{
@@ -327,12 +377,22 @@ class PlayState extends FlxState
 		var rx = Math.floor((mx - brett_ox) / kachel_breite);
 		var ry = Math.floor((my - brett_oy) / kachel_hoehe);
 
+		for (j in 0...raster_hoehe)
+		{
+			var zeile = highlightSprites_yx[j];
+			for (i in 0...raster_breite)
+			{
+				var sprite = zeile[i];
+				sprite.alpha = 0;
+			}
+		}
+
 		if (zustand.enthieltPunkt(rx, ry))
 		{
 			switch (ausgewaehlterKachel)
 			{
-				case WireSquare(w):
-				case Komponent(k):
+				case WireSquare(w, _):
+				case Komponent(k, _):
 					rx -= Math.floor((k.breite - 1) / 2);
 					ry -= Math.floor((k.hoehe - 1) / 2);
 					k.x = rx;
@@ -349,6 +409,96 @@ class PlayState extends FlxState
 			ausgewaehlterKachel_Spr.x = mx;
 			ausgewaehlterKachel_Spr.y = my;
 			ausgewaehlterKachel_Spr.alpha = 1.0;
+
+			if (ausgewaehlterKachelIndex == 4)
+			{
+				// wenn gummi
+				if (FlxG.mouse.pressed)
+				{
+					var anygone:Bool = false;
+					zustand.Inhalt = zustand.Inhalt.filter(ki ->
+					{
+						var mask = getInhaltMask(ki);
+						for (mp in mask)
+						{
+							if (mp.x == rx && mp.y == ry)
+							{
+								anygone = true;
+								return false;
+							}
+						}
+						return true;
+					});
+					if (anygone)
+					{
+						zustand.render(zustandSprite.pixels, ausgewaehlterKachelIndex == 0);
+					}
+				}
+			}
+			else
+			{
+				var ignorieregeplanntekomponent = false;
+
+				switch (ausgewaehlterKachel)
+				{
+					case WireSquare(w, z):
+						w.x = rx;
+						w.y = ry;
+					case Komponent(k, z):
+						k.x = rx;
+						k.y = ry;
+						ignorieregeplanntekomponent = true;
+					case Leer:
+				}
+
+				var overlaps = false;
+
+				var inhaltmask = getInhaltMask(ausgewaehlterKachel);
+				var zustandmask = zustand.getInhaltMask(false, ignorieregeplanntekomponent);
+
+				for (im in inhaltmask)
+				{
+					for (zsm in zustandmask)
+					{
+						if (im.x == zsm.x && im.y == zsm.y)
+						{
+							var s = highlightSprites_yx[im.y][im.x];
+							s.color = 0xffeb6c82;
+							s.alpha = 0.5;
+							overlaps = true;
+						}
+					}
+				}
+				if (FlxG.mouse.justPressed && !overlaps)
+				{
+					if (ignorieregeplanntekomponent)
+					{
+						zustand.Inhalt = zustand.Inhalt.filter(ki ->
+						{
+							switch (ki)
+							{
+								case WireSquare(w, z):
+									return true;
+								case Komponent(k, z):
+									return z == Fest;
+								case Leer:
+									return true;
+							}
+						});
+					}
+
+					zustand.Inhalt.push(copyInhalt(ausgewaehlterKachel));
+					zustand.render(zustandSprite.pixels, ausgewaehlterKachelIndex == 0);
+				}
+				else if (FlxG.mouse.wheel > 0)
+				{
+					onDrehClick(true);
+				}
+				else if (FlxG.mouse.wheel < 0)
+				{
+					onDrehClick(false);
+				}
+			}
 		}
 		else
 		{

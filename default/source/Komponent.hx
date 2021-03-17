@@ -13,16 +13,35 @@ class KomponentKachel
 	// 9 black..used just for multicomponents
 	public var connections:Array<Int>; // clockwise from left side of top. negative input, positive output.
 	public var offset:Position;
+	public var geladen:Bool;
 
-	public function dreh(breite:Int, hoehe:Int):KomponentKachel
+	public function copy():KomponentKachel
 	{
-		var newConnections = new Array<Int>();
-		for (i in 0...connections.length)
+		return new KomponentKachel(connections.copy(), {x: offset.x, y: offset.y});
+	}
+
+	public function dreh(breite:Int, hoehe:Int, dir:Bool):KomponentKachel
+	{
+		if (dir)
 		{
-			newConnections.push(connections[(i + 2) % connections.length]);
+			var newConnections = new Array<Int>();
+			for (i in 0...connections.length)
+			{
+				newConnections.push(connections[(i + 2) % connections.length]);
+			}
+			var newOffset = {x: offset.y, y: breite - offset.x - 1};
+			return new KomponentKachel(newConnections, newOffset);
 		}
-		var newOffset = {x: offset.y, y: breite - offset.x - 1};
-		return new KomponentKachel(newConnections, newOffset);
+		else
+		{
+			var newConnections = new Array<Int>();
+			for (i in 0...connections.length)
+			{
+				newConnections.push(connections[(i - 2 + connections.length) % connections.length]);
+			}
+			var newOffset = {x: hoehe - offset.y - 1, y: offset.x};
+			return new KomponentKachel(newConnections, newOffset);
+		}
 	}
 
 	public function serialize():String
@@ -44,6 +63,7 @@ class KomponentKachel
 	{
 		this.connections = connections;
 		this.offset = {x: offset.x, y: offset.y};
+		this.geladen = false;
 	}
 
 	public static var connektorcoordinaten:Array<Position> = [
@@ -57,21 +77,10 @@ class KomponentKachel
 		{x: 0, y: 2},
 	];
 
-	public function drawToGraphic(pixels:BitmapData, offsetX:Int, offsetY:Int)
+	public function drawToGraphic(bmd:BitmapData, offsetX:Int, offsetY:Int, ?alpha:Bool = false)
 	{
-		var g = makeGraphic();
-		pixels.copyPixels(g.pixels, g.pixels.rect, new openfl.geom.Point(offsetX, offsetY));
-	}
-
-	public function makeGraphic():FlxSprite
-	{
-		var s = new FlxSprite(0, 0);
-		var key = serialize();
-		s.makeGraphic(7, 7, FlxColor.TRANSPARENT, false, key);
-
-		var bmd = s.pixels;
-		bmd.fillRect(new openfl.geom.Rectangle(1, 1, 5, 5), FlxColor.BLACK);
-		bmd.fillRect(new openfl.geom.Rectangle(2, 2, 3, 3), FlxColor.TRANSPARENT);
+		bmd.fillRect(new openfl.geom.Rectangle(offsetX + 1, offsetY + 1, 5, 5), alpha ? 0x88000000 : FlxColor.BLACK);
+		bmd.fillRect(new openfl.geom.Rectangle(offsetX + 2, offsetY + 2, 3, 3), FlxColor.TRANSPARENT);
 
 		for (i => fidx in connections)
 		{
@@ -79,9 +88,15 @@ class KomponentKachel
 				continue;
 			var input = fidx < 0;
 			var farbe = WireSquare.verbindung_farben[(input ? -fidx : fidx) - 1];
+			if (alpha)
+			{
+				var col = new FlxColor(farbe);
+				col.alpha = 88;
+				farbe = col;
+			}
 			var pos = connektorcoordinaten[i];
 			trace(StringTools.hex(farbe, 8));
-			bmd.setPixel32(2 * pos.x, 2 * pos.y, farbe);
+			bmd.setPixel32(offsetX + 2 * pos.x, offsetY + 2 * pos.y, farbe);
 			if (input == false)
 			{
 				var px = 2 * pos.x;
@@ -102,9 +117,19 @@ class KomponentKachel
 				{
 					py++;
 				}
-				bmd.setPixel32(px, py, farbe);
+				bmd.setPixel32(offsetX + px, offsetY + py, farbe);
 			}
 		}
+	}
+
+	public function makeGraphic():FlxSprite
+	{
+		var s = new FlxSprite(0, 0);
+		var key = serialize();
+		s.makeGraphic(7, 7, FlxColor.TRANSPARENT, false, key);
+
+		var bmd = s.pixels;
+		drawToGraphic(bmd, 0, 0);
 
 		return s;
 	}
@@ -120,19 +145,41 @@ class Komponent
 
 	public var breite:Int;
 	public var hoehe:Int;
+	public var initial:Bool;
+
+	public function ueberlappt(x:Int, y:Int):Bool
+	{
+		for (k in kacheln)
+		{
+			if (k.offset.x + this.x == x && k.offset.y + this.y == y)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
 
 	public function enthieltPunkt(x:Int, y:Int):Bool
 	{
 		return x >= this.x && y >= this.y && x < this.x + breite && y < this.y + hoehe;
 	}
 
-	public function dreh():Komponent
+	public function copy():Komponent
+	{
+		var k = new Komponent(name, wert, kacheln.map(k -> k.copy()));
+		k.x = this.x;
+		k.y = this.y;
+		k.initial = this.initial;
+		return k;
+	}
+
+	public function dreh(dir:Bool):Komponent
 	{
 		var newX:Int = 0;
 		var newY:Int = 0;
 		var newBreite:Int = hoehe;
 		var newHoehe:Int = breite;
-		var newKacheln = kacheln.map(k -> k.dreh(breite, hoehe));
+		var newKacheln = kacheln.map(k -> k.dreh(breite, hoehe, dir));
 		var newName = name;
 		var newWert = wert;
 		return new Komponent(newName, newWert, newKacheln);
@@ -156,29 +203,36 @@ class Komponent
 		}
 	}
 
+	public function renderTo(bmd:BitmapData, ox:Int, oy:Int, ?alpha:Bool = false):Void
+	{
+		for (kachel in kacheln)
+		{
+			kachel.drawToGraphic(bmd, ox + 7 * kachel.offset.x, oy + 7 * kachel.offset.y, alpha);
+		}
+	}
+
 	public function render():FlxSprite
 	{
 		var result = new FlxSprite(0, 0);
 		result.makeGraphic(breite * 7, hoehe * 7, FlxColor.TRANSPARENT, true);
 		var bmd = result.pixels;
-
-		for (kachel in kacheln)
-		{
-			kachel.drawToGraphic(bmd, 7 * kachel.offset.x, 7 * kachel.offset.y);
-		}
+		renderTo(bmd, 0, 0);
 		return result;
 	}
 
-	public function new(name:String, wert:Int, kacheln:Array<KomponentKachel>)
+	public function new(name:String, wert:Int, kacheln:Array<KomponentKachel>, initial:Bool)
 	{
 		this.x = 0;
 		this.y = 0;
 		this.kacheln = kacheln;
 		this.name = name;
 		this.wert = wert;
+		this.initial = initial;
+
 		// rechne breite/hoehe aus
 		var xs = kacheln.map(k -> k.offset.x);
 		var ys = kacheln.map(k -> k.offset.y);
+
 		xs.sort((a, b) -> b - a);
 		ys.sort((a, b) -> b - a);
 
@@ -189,7 +243,7 @@ class Komponent
 		hoehe = y_max + 1;
 	}
 
-	public static function vonSilhouette(name:String, wert:Int, silhouetteString:String, gewunschteVerbindungen:Array<Int>):Komponent
+	public static function vonSilhouette(name:String, wert:Int, silhouetteString:String, gewunschteVerbindungen:Array<Int>, initial:Bool):Komponent
 	{
 		var silhouetteraster = silhouetteString.split("|");
 
@@ -277,6 +331,6 @@ class Komponent
 
 			komponentkacheln[platz[0]].connections[platz[1]] = gewuenschteVerbindung;
 		}
-		return new Komponent(name, wert, komponentkacheln);
+		return new Komponent(name, wert, komponentkacheln, initial);
 	}
 }

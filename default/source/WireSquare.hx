@@ -1,6 +1,7 @@
 import flixel.FlxSprite;
 import flixel.util.FlxColor;
 import lime.text.harfbuzz.HBGlyphPosition;
+import openfl.display.BitmapData;
 import openfl.display.IBitmapDrawable;
 
 using DirUtils;
@@ -8,12 +9,18 @@ using DirUtils;
 class Path
 {
 	public var start:Position;
-	public var farbe:Int;
 	public var trajectory:Array<RelativeDir>;
+	//-1 is empty
+	public var farbe:Int;
 
-	public function dreh():Path
+	public function copy():Path
 	{
-		var newStart:Position = {x: start.y, y: 3 - start.x};
+		return new Path(start, trajectory.copy(), farbe);
+	}
+
+	public function dreh(dir:Bool):Path
+	{
+		var newStart:Position = dir ? {x: start.y, y: 3 - start.x} : {x: 3 - start.y, y: start.x};
 		var newFarbe = farbe;
 		var newTrajectory = trajectory.copy();
 		return new Path(newStart, newTrajectory, farbe);
@@ -242,21 +249,22 @@ class WireSquare
 
 	public static var verbindung_farben = [0xffca3232, 0xff37946e, 0xffcabb32, 0xff37946e, 0xff000000];
 
-	public function dreh():WireSquare
+	public function dreh(dir:Bool):WireSquare
 	{
-		var newPaths = paths.map(p -> p.dreh());
+		var newPaths = paths.map(p -> p.dreh(dir));
 		return new WireSquare(newPaths);
 	}
 
-	public function makeGraphic():FlxSprite
+	public function copy():WireSquare
 	{
-		var s = new FlxSprite(0, 0);
-		var key = serialize();
-		s.makeGraphic(7, 7, FlxColor.TRANSPARENT, false, key);
+		var ws = new WireSquare(paths.map(p -> p.copy()));
+		ws.x = this.x;
+		ws.y = this.y;
+		return ws;
+	}
 
-		var colors = [0xffac3232, 0xffd95763, 0xffd77bba, 0xff76428a];
-		var bmd = s.pixels;
-
+	public function render(bmd:BitmapData, ox:Int, oy:Int)
+	{
 		for (i in 0...this.paths.length)
 		{
 			var path = this.paths[i];
@@ -266,9 +274,9 @@ class WireSquare
 				var p = trajectory[j];
 				var q = trajectory[j + 1];
 
-				bmd.setPixel32(2 * p.x, 2 * p.y, 0xff000000);
-				bmd.setPixel32(Math.round((2 * p.x + 2 * q.x) / 2), Math.round((2 * p.y + 2 * q.y) / 2), 0xff000000);
-				bmd.setPixel32(2 * q.x, 2 * q.y, 0xff000000);
+				bmd.setPixel32(ox + 2 * p.x, oy + 2 * p.y, 0xff000000);
+				bmd.setPixel32(ox + Math.round((2 * p.x + 2 * q.x) / 2), oy + Math.round((2 * p.y + 2 * q.y) / 2), 0xff000000);
+				bmd.setPixel32(ox + 2 * q.x, oy + 2 * q.y, 0xff000000);
 
 				var dx = q.x - p.x;
 				var dy = q.y - p.y;
@@ -279,19 +287,30 @@ class WireSquare
 				var right_x = q.x + dy;
 				var right_y = q.y - dx;
 
-				var left_pixel = bmd.getPixel32(Math.round((2 * left_x + 2 * q.x) / 2), Math.round((2 * left_y + 2 * q.y) / 2));
-				var right_pixel = bmd.getPixel32(Math.round((2 * right_x + 2 * q.x) / 2), Math.round((2 * right_y + 2 * q.y) / 2));
+				var left_pixel = bmd.getPixel32(ox + Math.round((2 * left_x + 2 * q.x) / 2), oy + Math.round((2 * left_y + 2 * q.y) / 2));
+				var right_pixel = bmd.getPixel32(ox + Math.round((2 * right_x + 2 * q.x) / 2), oy + Math.round((2 * right_y + 2 * q.y) / 2));
 				trace(StringTools.hex(left_pixel, 8), StringTools.hex(right_pixel, 8));
 				if (left_pixel == 0xff000000)
 				{
-					bmd.setPixel32(Math.round((2 * left_x + 2 * q.x) / 2), Math.round((2 * left_y + 2 * q.y) / 2), 0xff546772);
+					bmd.setPixel32(ox + Math.round((2 * left_x + 2 * q.x) / 2), oy + Math.round((2 * left_y + 2 * q.y) / 2), 0xff546772);
 				}
 				if (right_pixel == 0xff000000)
 				{
-					bmd.setPixel32(Math.round((2 * right_x + 2 * q.x) / 2), Math.round((2 * right_y + 2 * q.y) / 2), 0xff546772);
+					bmd.setPixel32(ox + Math.round((2 * right_x + 2 * q.x) / 2), oy + Math.round((2 * right_y + 2 * q.y) / 2), 0xff546772);
 				}
 			}
 		}
+	}
+
+	public function makeGraphic():FlxSprite
+	{
+		var s = new FlxSprite(0, 0);
+		var key = serialize();
+		s.makeGraphic(7, 7, FlxColor.TRANSPARENT, false, key);
+
+		var colors = [0xffac3232, 0xffd95763, 0xffd77bba, 0xff76428a];
+		var bmd = s.pixels;
+		render(bmd, 0, 0);
 
 		return s;
 	}
