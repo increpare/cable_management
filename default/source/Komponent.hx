@@ -6,11 +6,19 @@ import openfl.display.IBitmapDrawable;
 
 using DirUtils;
 
+enum KomponentKachelStromdarstellungszustand
+{
+	voll;
+	teil;
+	leer;
+	keine;
+}
+
 class KomponentKachel
 {
 	// colors:
 	// 1,2,3...8 colours
-	// 9 black..used just for multicomponents
+	// 9 black..used just for multicomponents (OR 5 actually?)
 	public var connections:Array<Int>; // clockwise from left side of top. negative input, positive output.
 	public var offset:Position;
 	public var geladen:Bool;
@@ -71,16 +79,27 @@ class KomponentKachel
 		{x: 2, y: 0},
 		{x: 3, y: 1},
 		{x: 3, y: 2},
-		{x: 1, y: 3},
 		{x: 2, y: 3},
-		{x: 0, y: 1},
+		{x: 1, y: 3},
 		{x: 0, y: 2},
+		{x: 0, y: 1},
 	];
 
-	public function drawToGraphic(bmd:BitmapData, offsetX:Int, offsetY:Int, ?alpha:Bool = false)
+	public function drawToGraphic(bmd:BitmapData, offsetX:Int, offsetY:Int, ?alpha:Bool = false,
+			stromdarstellung:KomponentKachelStromdarstellungszustand = keine)
 	{
 		bmd.fillRect(new openfl.geom.Rectangle(offsetX + 1, offsetY + 1, 5, 5), alpha ? 0x88000000 : FlxColor.BLACK);
-		bmd.fillRect(new openfl.geom.Rectangle(offsetX + 2, offsetY + 2, 3, 3), FlxColor.TRANSPARENT);
+		bmd.fillRect(new openfl.geom.Rectangle(offsetX + 2, offsetY + 2, 3, 3), stromdarstellung == voll ? 0xffedba4c : FlxColor.TRANSPARENT);
+
+		if (stromdarstellung == keine) {}
+		else if (stromdarstellung == teil)
+		{
+			bmd.setPixel32(offsetX + 3, offsetY + 3, 0xffedba4c);
+		}
+		else if (stromdarstellung == leer)
+		{
+			bmd.setPixel32(offsetX + 3, offsetY + 3, 0xff000000);
+		}
 
 		for (i => fidx in connections)
 		{
@@ -101,6 +120,64 @@ class KomponentKachel
 			{
 				var px = 2 * pos.x;
 				var py = 2 * pos.y;
+				if (px == 6)
+				{
+					px--;
+				}
+				if (px == 0)
+				{
+					px++;
+				}
+				if (py == 6)
+				{
+					py--;
+				}
+				if (py == 0)
+				{
+					py++;
+				}
+				bmd.setPixel32(offsetX + px, offsetY + py, farbe);
+			}
+		}
+
+		if (stromdarstellung == voll)
+		{
+			for (i => fidx in connections)
+			{
+				if (i % 2 == 1)
+				{
+					continue;
+				}
+				if (fidx == 0)
+					continue;
+				var input = fidx < 0;
+				var farbe = WireSquare.verbindung_farben[(input ? -fidx : fidx) - 1];
+				if (alpha)
+				{
+					var col = new FlxColor(farbe);
+					col.alpha = 88;
+					farbe = col;
+				}
+
+				if (farbe != 0xff000000)
+				{
+					continue;
+				}
+				farbe = 0xffedba4c;
+
+				var pos = connektorcoordinaten[i];
+				var pos2 = connektorcoordinaten[i + 1];
+				var pos_mitte = {
+					x: ((pos.x + pos2.x) / 2),
+					y: ((pos.y + pos2.y) / 2)
+				};
+
+				var px = Math.round(2 * pos_mitte.x);
+				var py = Math.round(2 * pos_mitte.y);
+
+				trace(StringTools.hex(farbe, 8));
+				bmd.setPixel32(offsetX + px, offsetY + py, farbe);
+
 				if (px == 6)
 				{
 					px--;
@@ -145,7 +222,11 @@ class Komponent
 
 	public var breite:Int;
 	public var hoehe:Int;
+
+	// ob dieser die Quelle von Signalen ist oder nicht.
 	public var initial:Bool;
+
+	public var hatstrom:Bool;
 
 	public function ueberlappt(x:Int, y:Int):Bool
 	{
@@ -166,10 +247,9 @@ class Komponent
 
 	public function copy():Komponent
 	{
-		var k = new Komponent(name, wert, kacheln.map(k -> k.copy()));
+		var k = new Komponent(name, wert, kacheln.map(k -> k.copy()), this.initial, this.hatstrom);
 		k.x = this.x;
 		k.y = this.y;
-		k.initial = this.initial;
 		return k;
 	}
 
@@ -182,7 +262,9 @@ class Komponent
 		var newKacheln = kacheln.map(k -> k.dreh(breite, hoehe, dir));
 		var newName = name;
 		var newWert = wert;
-		return new Komponent(newName, newWert, newKacheln);
+		var newInitial = initial;
+		var newHatstrom = hatstrom;
+		return new Komponent(newName, newWert, newKacheln, newInitial, newHatstrom);
 	}
 
 	private static function shuffleArray<T>(ar:Array<T>):Void
@@ -207,7 +289,7 @@ class Komponent
 	{
 		for (kachel in kacheln)
 		{
-			kachel.drawToGraphic(bmd, ox + 7 * kachel.offset.x, oy + 7 * kachel.offset.y, alpha);
+			kachel.drawToGraphic(bmd, ox + 7 * kachel.offset.x, oy + 7 * kachel.offset.y, alpha, keine);
 		}
 	}
 
@@ -220,7 +302,7 @@ class Komponent
 		return result;
 	}
 
-	public function new(name:String, wert:Int, kacheln:Array<KomponentKachel>, initial:Bool)
+	public function new(name:String, wert:Int, kacheln:Array<KomponentKachel>, initial:Bool, hatstrom:Bool)
 	{
 		this.x = 0;
 		this.y = 0;
@@ -228,6 +310,7 @@ class Komponent
 		this.name = name;
 		this.wert = wert;
 		this.initial = initial;
+		this.hatstrom = hatstrom;
 
 		// rechne breite/hoehe aus
 		var xs = kacheln.map(k -> k.offset.x);
@@ -331,6 +414,6 @@ class Komponent
 
 			komponentkacheln[platz[0]].connections[platz[1]] = gewuenschteVerbindung;
 		}
-		return new Komponent(name, wert, komponentkacheln, initial);
+		return new Komponent(name, wert, komponentkacheln, initial, initial);
 	}
 }

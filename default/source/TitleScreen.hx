@@ -40,6 +40,8 @@ class TitleScreen extends FlxState
 	{
 		super.create();
 
+		// WireSquare.GenerateAll();
+
 		this.bgColor = PlayState.COL_BG;
 
 		if (fontAngelCode == null)

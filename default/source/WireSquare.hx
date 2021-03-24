@@ -11,6 +11,8 @@ class Path
 	public var start:Position;
 	public var trajectory:Array<RelativeDir>;
 	//-1 is empty
+	// 0-3 colors
+	// 4 is empty
 	public var farbe:Int;
 
 	public function copy():Path
@@ -158,6 +160,28 @@ class Path
 		{x: 0, y: 2}, {x: 0, y: 1}
 	];
 
+	public static function PositionToConnectionIndex(p:Position):Int
+	{
+		for (i => ep in StartingPoints)
+		{
+			if (p.x == ep.x && p.y == ep.y)
+			{
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	public function startConnectionIndex():Int
+	{
+		return PositionToConnectionIndex(start);
+	}
+
+	public function endConnectionIndex():Int
+	{
+		return PositionToConnectionIndex(endPoint());
+	}
+
 	public function isValid():Bool
 	{
 		var end = endPoint();
@@ -273,10 +297,14 @@ class WireSquare
 			{
 				var p = trajectory[j];
 				var q = trajectory[j + 1];
+				var farbe = verbindung_farben[path.farbe];
 
-				bmd.setPixel32(ox + 2 * p.x, oy + 2 * p.y, 0xff000000);
-				bmd.setPixel32(ox + Math.round((2 * p.x + 2 * q.x) / 2), oy + Math.round((2 * p.y + 2 * q.y) / 2), 0xff000000);
-				bmd.setPixel32(ox + 2 * q.x, oy + 2 * q.y, 0xff000000);
+				var light = new FlxColor(farbe);
+				light.alpha = 5 * 16 + 5;
+				var farbe_light = light;
+				bmd.setPixel32(ox + 2 * p.x, oy + 2 * p.y, farbe);
+				bmd.setPixel32(ox + Math.round((2 * p.x + 2 * q.x) / 2), oy + Math.round((2 * p.y + 2 * q.y) / 2), farbe);
+				bmd.setPixel32(ox + 2 * q.x, oy + 2 * q.y, farbe);
 
 				var dx = q.x - p.x;
 				var dy = q.y - p.y;
@@ -290,13 +318,13 @@ class WireSquare
 				var left_pixel = bmd.getPixel32(ox + Math.round((2 * left_x + 2 * q.x) / 2), oy + Math.round((2 * left_y + 2 * q.y) / 2));
 				var right_pixel = bmd.getPixel32(ox + Math.round((2 * right_x + 2 * q.x) / 2), oy + Math.round((2 * right_y + 2 * q.y) / 2));
 				trace(StringTools.hex(left_pixel, 8), StringTools.hex(right_pixel, 8));
-				if (left_pixel == 0xff000000)
+				if (left_pixel == farbe)
 				{
-					bmd.setPixel32(ox + Math.round((2 * left_x + 2 * q.x) / 2), oy + Math.round((2 * left_y + 2 * q.y) / 2), 0xff546772);
+					bmd.setPixel32(ox + Math.round((2 * left_x + 2 * q.x) / 2), oy + Math.round((2 * left_y + 2 * q.y) / 2), farbe_light);
 				}
-				if (right_pixel == 0xff000000)
+				if (right_pixel == farbe)
 				{
-					bmd.setPixel32(ox + Math.round((2 * right_x + 2 * q.x) / 2), oy + Math.round((2 * right_y + 2 * q.y) / 2), 0xff546772);
+					bmd.setPixel32(ox + Math.round((2 * right_x + 2 * q.x) / 2), oy + Math.round((2 * right_y + 2 * q.y) / 2), farbe_light);
 				}
 			}
 		}
@@ -317,10 +345,14 @@ class WireSquare
 
 	public function serialize():String
 	{
-		var result = paths[0].serialize();
-		for (p in paths)
+		var result = "";
+		for (i => p in paths)
 		{
-			result += ":" + p.serialize();
+			if (i > 0)
+			{
+				result += ":";
+			}
+			result += p.serialize();
 		}
 		return result;
 	}

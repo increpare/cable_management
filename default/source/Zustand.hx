@@ -3,6 +3,15 @@ import flixel.util.FlxColor;
 import lime.math.Rectangle;
 import openfl.display.BitmapData;
 
+typedef ConnectionData =
+{
+	var kx:Int;
+	var ky:Int;
+	var kcon:Int;
+	var farbe:Int;
+	var target:KachelInhalt;
+}
+
 class Zustand
 {
 	public var breite:Int;
@@ -70,6 +79,75 @@ class Zustand
 		}
 	}
 
+	private static function connectionDatasConnect(a:ConnectionData, b:ConnectionData):Bool
+	{
+		var b_flipped = flipConnectionData(b);
+		return a.kx == b_flipped.kx && a.ky == b_flipped.ky && a.kcon == b_flipped.kcon;
+	}
+
+	private static function getConnDat(connections:Array<ConnectionData>, kx:Int, ky:Int, kcon:Int):ConnectionData
+	{
+		for (kd in connections)
+		{
+			if (kd.kx == kx && kd.ky == ky && kd.kcon == kcon)
+			{
+				return kd;
+			}
+		}
+		return null;
+	}
+
+	private static function setFarbe(a:ConnectionData, farbe:Int, others:Array<ConnectionData>)
+	{
+		a.farbe = farbe;
+		switch (a.target)
+		{
+			case WireSquare(w, z):
+				for (p in w.paths)
+				{
+					if (p.startConnectionIndex() == a.kcon)
+					{
+						p.farbe = farbe;
+						var dataForOtherSide = getConnDat(others, w.x, w.y, p.endConnectionIndex());
+						dataForOtherSide.farbe = farbe;
+					}
+					if (p.endConnectionIndex() == a.kcon)
+					{
+						p.farbe = farbe;
+						var dataForOtherSide = getConnDat(others, w.x, w.y, p.startConnectionIndex());
+						dataForOtherSide.farbe = farbe;
+					}
+				}
+			case Komponent(k, z):
+			// NFI
+			case Leer:
+		}
+	}
+
+	private static function flipConnectionData(a:ConnectionData)
+	{
+		var offsets:Array<Position> = [
+			{x: 0, y: -1},
+			{x: 0, y: -1},
+			{x: 1, y: 0},
+			{x: 1, y: 0},
+			{x: 0, y: 1},
+			{x: 0, y: 1},
+			{x: -1, y: 0},
+			{x: -1, y: 0},
+		];
+		var flipConnectionIndex:Array<Int> = [5, 4, 7, 6, 1, 0, 3, 2];
+
+		var offset = offsets[a.kcon];
+		return {
+			kx: a.kx + offset.x,
+			ky: a.ky + offset.y,
+			kcon: flipConnectionIndex[a.kcon],
+			farbe: a.farbe,
+			target: a.target,
+		};
+	}
+
 	public function rechneSignaleAus():Void
 	{
 		for (ki in Inhalt)
@@ -79,11 +157,102 @@ class Zustand
 				case WireSquare(w, z):
 					for (p in w.paths)
 					{
-						p.farbe = -1;
+						p.farbe = 4;
 					}
 				case Komponent(k, z):
-
+					k.hatstrom = k.initial;
+					for (kc in k.kacheln)
+					{
+						kc.geladen = k.hatstrom;
+					}
 				case Leer:
+			}
+		}
+
+		var SignalTeile:Array<ConnectionData> = [];
+		for (ki in Inhalt)
+		{
+			switch (ki)
+			{
+				case WireSquare(w, z):
+					for (p in w.paths)
+					{
+						var ks:ConnectionData = {
+							kx: w.x,
+							ky: w.y,
+							kcon: p.startConnectionIndex(),
+							farbe: p.farbe,
+							target: ki
+						}
+						SignalTeile.push(ks);
+
+						var ke:ConnectionData = {
+							kx: w.x,
+							ky: w.y,
+							kcon: p.endConnectionIndex(),
+							farbe: p.farbe,
+							target: ki
+						}
+						SignalTeile.push(ke);
+					}
+				case Komponent(k, z):
+					k.hatstrom = k.initial;
+					for (kc in k.kacheln)
+					{
+						for (connectionindex => farbe in kc.connections)
+						{
+							if (farbe == 0 || farbe == 5 || farbe == -5)
+								continue;
+							if (farbe > 0)
+							{
+								farbe--;
+							}
+							else
+							{
+								farbe++;
+							}
+
+							var connectionData:ConnectionData = {
+								kx: k.x + kc.offset.x,
+								ky: k.y + kc.offset.y,
+								kcon: connectionindex,
+								farbe: farbe,
+								target: ki
+							}
+							SignalTeile.push(connectionData);
+						}
+					}
+				case Leer:
+			}
+		}
+
+		var modified:Bool = true;
+		while (modified)
+		{
+			modified = false;
+
+			for (i => st_i in SignalTeile)
+			{
+				for (j => st_j in SignalTeile)
+				{
+					if (j < i)
+					{
+						continue;
+					}
+					if (connectionDatasConnect(st_i, st_j))
+					{
+						if (st_i.farbe == 4 && st_j.farbe != 4 && st_j.farbe != st_i.farbe)
+						{
+							setFarbe(st_i, st_j.farbe, SignalTeile);
+							modified = true;
+						}
+						if (st_j.farbe == 4 && st_i.farbe != 4 && st_j.farbe != st_i.farbe)
+						{
+							setFarbe(st_j, st_i.farbe, SignalTeile);
+							modified = true;
+						}
+					}
+				}
 			}
 		}
 	}

@@ -7,6 +7,7 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.FlxState;
 import flixel.group.FlxGroup;
+import flixel.math.FlxRandom;
 import flixel.text.FlxBitmapText;
 import flixel.ui.FlxSpriteButton;
 import flixel.util.FlxColor;
@@ -32,14 +33,12 @@ class PlayState extends FlxState
 	public static inline var raster_hoehe:Int = 8;
 
 	private var kabelkacheln:Array<WireSquare> = [
-		"1,0,3:1,0,3", "1,0,0,0:1,0,0,0", "1,0,0,3:1,0,0,3", "1,0,2,2:1,0,2,2", "1,0,0,2,0:1,0,0,2,0", "1,0,0,2,3:1,0,0,2,3", "2,0,0,2:2,0,0,2",
-		"2,0,0,3,2:2,0,0,3,2", "1,0,3:1,0,3:2,0,2", "1,0,3:1,0,3:2,0,0,0", "1,0,3:1,0,3:2,0,0,2", "1,0,3:1,0,3:2,0,0,3,0", "1,0,3:1,0,3:2,0,0,3,2",
-		"1,0,3:1,0,3:3,1,2,0", "1,0,3:1,0,3:3,1,2,2", "1,0,3:1,0,3:3,1,2,3,0", "1,0,3:1,0,3:3,1,2,3,2", "1,0,3:1,0,3:3,2,2", "1,0,3:1,0,3:3,2,0,2",
-		"1,0,3:1,0,3:1,3,3,3", "1,0,0,0:1,0,0,0:2,0,2", "1,0,0,0:1,0,0,0:2,0,0,0", "1,0,0,0:1,0,0,0:2,0,0,2", "1,0,0,0:1,0,0,0:2,0,3,0",
-		"1,0,0,0:1,0,0,0:2,0,0,3,0", "1,0,0,0:1,0,0,0:3,1,2,0", "1,0,0,0:1,0,0,0:3,1,2,2", "1,0,0,0:1,0,0,0:3,1,2,3,0", "1,0,0,3:1,0,0,3:2,0,2",
-		"1,0,0,3:1,0,0,3:2,0,0,2", "1,0,0,3:1,0,0,3:2,0,3,0", "1,0,0,3:1,0,0,3:3,1,2,0", "1,0,0,3:1,0,0,3:3,1,2,2", "1,0,2,0:1,0,2,0:2,0,0,0",
-		"1,0,2,0:1,0,2,0:2,0,0,3,0", "1,0,2,0:1,0,2,0:2,0,0,3,2", "1,0,2,2:1,0,2,2:3,2,0,2", "1,0,2,2:1,0,2,2:1,3,3,3", "1,0,0,2,0:1,0,0,2,0:2,0,0,0",
-		"1,0,0,2,0:1,0,0,2,0:2,0,3,0", "1,0,0,2,3:1,0,0,2,3:2,0,3,0", "2,0,0,0:2,0,0,0:3,1,0,2,2,0", "2,0,3,0:2,0,3,0:3,2,0,2"
+		"1,0,3", "1,0,0,0", "1,0,0,3", "1,0,2,2", "1,0,0,2,0", "1,0,0,2,3", "2,0,0,2", "2,0,0,3,2", "1,0,3:2,0,2", "1,0,3:2,0,0,0", "1,0,3:2,0,0,2",
+		"1,0,3:2,0,0,3,0", "1,0,3:2,0,0,3,2", "1,0,3:3,1,2,0", "1,0,3:3,1,2,2", "1,0,3:3,1,2,3,0", "1,0,3:3,1,2,3,2", "1,0,3:3,2,2", "1,0,3:3,2,0,2",
+		"1,0,3:1,3,3,3", "1,0,0,0:2,0,2", "1,0,0,0:2,0,0,0", "1,0,0,0:2,0,0,2", "1,0,0,0:2,0,3,0", "1,0,0,0:2,0,0,3,0", "1,0,0,0:3,1,2,0", "1,0,0,0:3,1,2,2",
+		"1,0,0,0:3,1,2,3,0", "1,0,0,3:2,0,2", "1,0,0,3:2,0,0,2", "1,0,0,3:2,0,3,0", "1,0,0,3:3,1,2,0", "1,0,0,3:3,1,2,2", "1,0,2,0:2,0,0,0",
+		"1,0,2,0:2,0,0,3,0", "1,0,2,0:2,0,0,3,2", "1,0,2,2:3,2,0,2", "1,0,2,2:1,3,3,3", "1,0,0,2,0:2,0,0,0", "1,0,0,2,0:2,0,3,0", "1,0,0,2,3:2,0,3,0",
+		"2,0,0,0:3,1,0,2,2,0", "2,0,3,0:3,2,0,2"
 	].map(WireSquare.deserialize);
 
 	var kachelleiste:Array<WireSquare>;
@@ -107,6 +106,7 @@ class PlayState extends FlxState
 					return KachelInhalt.Leer;
 			}
 		});
+		zustand.rechneSignaleAus();
 		zustand.render(zustandSprite.pixels, ausgewaehlterKachelIndex == 0);
 	}
 
@@ -263,6 +263,13 @@ class PlayState extends FlxState
 		komponentText.text = komponent.name + " (E" + komponent.wert + 4 + ")";
 
 		kachelleiste = kabelkacheln.splice(30, 3); // [kabelkacheln[3], kabelkacheln[4], kabelkacheln[5]];
+		for (kachel in kachelleiste)
+		{
+			for (p in kachel.paths)
+			{
+				p.farbe = 4;
+			}
+		}
 
 		kacheltasten = kachelleiste.map(ws -> ws.makeGraphic());
 		kacheltasten_ausgewaehlt = kachelleiste.map(ws -> ws.makeGraphic());
@@ -431,6 +438,7 @@ class PlayState extends FlxState
 					});
 					if (anygone)
 					{
+						zustand.rechneSignaleAus();
 						zustand.render(zustandSprite.pixels, ausgewaehlterKachelIndex == 0);
 					}
 				}
@@ -488,6 +496,7 @@ class PlayState extends FlxState
 					}
 
 					zustand.Inhalt.push(copyInhalt(ausgewaehlterKachel));
+					zustand.rechneSignaleAus();
 					zustand.render(zustandSprite.pixels, ausgewaehlterKachelIndex == 0);
 				}
 				else if (FlxG.mouse.wheel > 0)
