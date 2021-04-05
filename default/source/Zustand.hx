@@ -2,14 +2,22 @@ import DirUtils.Position;
 import flixel.util.FlxColor;
 import lime.math.Rectangle;
 import openfl.display.BitmapData;
+import openfl.display.GraphicsQuadPath;
+
+enum VerbindungTyp
+{
+	eingabe;
+	ausgabe;
+	draht;
+}
 
 typedef ConnectionData =
 {
 	var kx:Int;
 	var ky:Int;
 	var kcon:Int;
-	var farbe:Int;
 	var target:KachelInhalt;
+	var id:Int;
 }
 
 class Zustand
@@ -97,33 +105,6 @@ class Zustand
 		return null;
 	}
 
-	private static function setFarbe(a:ConnectionData, farbe:Int, others:Array<ConnectionData>)
-	{
-		a.farbe = farbe;
-		switch (a.target)
-		{
-			case WireSquare(w, z):
-				for (p in w.paths)
-				{
-					if (p.startConnectionIndex() == a.kcon)
-					{
-						p.farbe = farbe;
-						var dataForOtherSide = getConnDat(others, w.x, w.y, p.endConnectionIndex());
-						dataForOtherSide.farbe = farbe;
-					}
-					if (p.endConnectionIndex() == a.kcon)
-					{
-						p.farbe = farbe;
-						var dataForOtherSide = getConnDat(others, w.x, w.y, p.startConnectionIndex());
-						dataForOtherSide.farbe = farbe;
-					}
-				}
-			case Komponent(k, z):
-			// NFI
-			case Leer:
-		}
-	}
-
 	private static function flipConnectionData(a:ConnectionData)
 	{
 		var offsets:Array<Position> = [
@@ -143,9 +124,31 @@ class Zustand
 			kx: a.kx + offset.x,
 			ky: a.ky + offset.y,
 			kcon: flipConnectionIndex[a.kcon],
-			farbe: a.farbe,
 			target: a.target,
+			id: a.id
 		};
+	}
+
+	private static function setFarbe(a:ConnectionData, farbe:Int)
+	{
+		switch (a.target)
+		{
+			case WireSquare(w, z):
+				for (p in w.paths)
+				{
+					if (p.startConnectionIndex() == a.kcon)
+					{
+						p.farbe = farbe;
+					}
+					if (p.endConnectionIndex() == a.kcon)
+					{
+						p.farbe = farbe;
+					}
+				}
+			case Komponent(k, z):
+			// NFI
+			case Leer:
+		}
 	}
 
 	public function rechneSignaleAus():Void
@@ -170,6 +173,7 @@ class Zustand
 		}
 
 		var SignalTeile:Array<ConnectionData> = [];
+		var id_counter = 0;
 		for (ki in Inhalt)
 		{
 			switch (ki)
@@ -177,12 +181,13 @@ class Zustand
 				case WireSquare(w, z):
 					for (p in w.paths)
 					{
+						var neue_id = id_counter++;
 						var ks:ConnectionData = {
 							kx: w.x,
 							ky: w.y,
 							kcon: p.startConnectionIndex(),
-							farbe: p.farbe,
-							target: ki
+							target: ki,
+							id: neue_id
 						}
 						SignalTeile.push(ks);
 
@@ -190,8 +195,8 @@ class Zustand
 							kx: w.x,
 							ky: w.y,
 							kcon: p.endConnectionIndex(),
-							farbe: p.farbe,
-							target: ki
+							target: ki,
+							id: neue_id
 						}
 						SignalTeile.push(ke);
 					}
@@ -203,21 +208,13 @@ class Zustand
 						{
 							if (farbe == 0 || farbe == 5 || farbe == -5)
 								continue;
-							if (farbe > 0)
-							{
-								farbe--;
-							}
-							else
-							{
-								farbe++;
-							}
 
 							var connectionData:ConnectionData = {
 								kx: k.x + kc.offset.x,
 								ky: k.y + kc.offset.y,
 								kcon: connectionindex,
-								farbe: farbe,
-								target: ki
+								target: ki,
+								id: id_counter++
 							}
 							SignalTeile.push(connectionData);
 						}
@@ -226,10 +223,10 @@ class Zustand
 			}
 		}
 
-		var modified:Bool = true;
-		while (modified)
+		var modifiziert:Bool = true;
+		while (modifiziert)
 		{
-			modified = false;
+			modifiziert = false;
 
 			for (i => st_i in SignalTeile)
 			{
@@ -241,18 +238,117 @@ class Zustand
 					}
 					if (connectionDatasConnect(st_i, st_j))
 					{
-						if (st_i.farbe == 4 && st_j.farbe != 4 && st_j.farbe != st_i.farbe)
+						if (st_i.id != st_j.id)
 						{
-							setFarbe(st_i, st_j.farbe, SignalTeile);
-							modified = true;
-						}
-						if (st_j.farbe == 4 && st_i.farbe != 4 && st_j.farbe != st_i.farbe)
-						{
-							setFarbe(st_j, st_i.farbe, SignalTeile);
-							modified = true;
+							var minid = st_i.id < st_j.id ? st_i.id : st_j.id;
+							var maxid = st_i.id < st_j.id ? st_j.id : st_i.id;
+							for (i => st_k in SignalTeile)
+							{
+								if (st_k.id == maxid)
+								{
+									st_k.id = minid;
+								}
+							}
+							modifiziert = true;
 						}
 					}
 				}
+			}
+		}
+
+		var gruppiert:Map<Int, Array<ConnectionData>> = [];
+		for (st in SignalTeile)
+		{
+			var gruppe = gruppiert[st.id];
+			if (gruppe == null)
+			{
+				gruppe = [];
+				gruppiert[st.id] = gruppe;
+			}
+			gruppe.push(st);
+		}
+
+		for (id => gruppe in gruppiert)
+		{
+			var gruppeFarbe = 4;
+
+			var eingaben:Array<ConnectionData> = [];
+			var ausgaben:Array<ConnectionData> = [];
+			var draht:Array<ConnectionData> = [];
+			for (cd in gruppe)
+			{
+				switch (cd.target)
+				{
+					case WireSquare(w, z):
+						draht.push(cd);
+					case Komponent(k, z):
+						var farbe = k.GetVerbindungFarbe(cd.kx, cd.ky, cd.kcon);
+						if (farbe > 0 && farbe != 5)
+						{
+							ausgaben.push(cd);
+						}
+						else if (farbe < 0)
+						{
+							eingaben.push(cd);
+						}
+					case Leer:
+				}
+			}
+
+			if (ausgaben.length == 0)
+			{
+				gruppeFarbe = 4;
+			}
+			else if (ausgaben.length > 1)
+			{
+				gruppeFarbe = 5; // Farbe der Ungueltigkeit
+			}
+			else if (eingaben.length > 1)
+			{
+				gruppeFarbe = 5; // Farbe der Ungueltigkeit
+			}
+			else if (eingaben.length == 1)
+			{ // eine Aufgabe, eine Eingabe
+				var eingabe_kd = eingaben[0];
+				var eingabekomponent = switch (eingabe_kd.target)
+				{
+					case Komponent(k, z): k;
+					default: null;
+				};
+				var eingabe_farbe = eingabekomponent.GetVerbindungFarbe(eingabe_kd.kx, eingabe_kd.ky, eingabe_kd.kcon);
+
+				var ausgabe_kd = ausgaben[0];
+				var ausgabekomponent = switch (ausgabe_kd.target)
+				{
+					case Komponent(k, z): k;
+					default: null;
+				};
+				var ausgabe_farbe = ausgabekomponent.GetVerbindungFarbe(ausgabe_kd.kx, ausgabe_kd.ky, ausgabe_kd.kcon);
+
+				if (eingabe_farbe == -ausgabe_farbe)
+				{
+					gruppeFarbe = ausgabe_farbe - 1;
+				}
+				else
+				{
+					gruppeFarbe = 5;
+				}
+			}
+			else
+			{
+				var ausgabe_kd = ausgaben[0];
+				var ausgabekomponent = switch (ausgabe_kd.target)
+				{
+					case Komponent(k, z): k;
+					default: null;
+				};
+				var ausgabe_farbe = ausgabekomponent.GetVerbindungFarbe(ausgabe_kd.kx, ausgabe_kd.ky, ausgabe_kd.kcon);
+				gruppeFarbe = ausgabe_farbe - 1;
+			}
+
+			for (kd in draht)
+			{
+				setFarbe(kd, gruppeFarbe);
 			}
 		}
 	}

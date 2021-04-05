@@ -7,6 +7,7 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.FlxState;
 import flixel.group.FlxGroup;
+import flixel.input.keyboard.FlxKey;
 import flixel.math.FlxRandom;
 import flixel.text.FlxBitmapText;
 import flixel.ui.FlxSpriteButton;
@@ -247,7 +248,7 @@ class PlayState extends FlxState
 		komponentText.color = FlxColor.BLACK;
 		add(komponentText);
 
-		komponent = Komponent.vonSilhouette("CPU", 100, "10|10|11", [1, 1, -1, 2, -2], true);
+		komponent = Komponent.vonSilhouette("CPU", 100, "10|10|11", [1, 1, -1, -1, -2, 2, -2, 2], true);
 
 		komponentTaste_ausgewaehlt = new FlxMySpriteSelectedButton(17, 12, 25, 25, komponent.render(), "assets/images/sprite_btn_bg_big.png");
 		add(komponentTaste_ausgewaehlt);
@@ -377,6 +378,11 @@ class PlayState extends FlxState
 	override public function update(elapsed:Float)
 	{
 		super.update(elapsed);
+
+		if (FlxG.keys.justPressed.N)
+		{
+			FlxG.switchState(new PlayState());
+		}
 		var mx = FlxG.mouse.x;
 		var my = FlxG.mouse.y;
 

@@ -326,6 +326,21 @@ class Komponent
 		hoehe = y_max + 1;
 	}
 
+	public function GetVerbindungFarbe(x:Int, y:Int, verbindungIndex):Int
+	{
+		var x_lokal = x - this.x;
+		var y_lokal = y - this.y;
+		for (kk in kacheln)
+		{
+			if (kk.offset.x == x_lokal && kk.offset.y == y_lokal)
+			{
+				return kk.connections[verbindungIndex];
+			}
+		}
+		trace("ERROR: nothing found at " + x + "," + y);
+		return 0;
+	}
+
 	public static function vonSilhouette(name:String, wert:Int, silhouetteString:String, gewunschteVerbindungen:Array<Int>, initial:Bool):Komponent
 	{
 		var silhouetteraster = silhouetteString.split("|");

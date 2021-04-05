@@ -271,7 +271,7 @@ class WireSquare
 	public var y:Int;
 	public var paths:Array<Path>;
 
-	public static var verbindung_farben = [0xffca3232, 0xff37946e, 0xffcabb32, 0xff37946e, 0xff000000];
+	public static var verbindung_farben = [0xffca3232, 0xff37946e, 0xffcabb32, 0xff37946e, 0xff000000, 0xffff0000];
 
 	public function dreh(dir:Bool):WireSquare
 	{
@@ -302,9 +302,18 @@ class WireSquare
 				var light = new FlxColor(farbe);
 				light.alpha = 5 * 16 + 5;
 				var farbe_light = light;
-				bmd.setPixel32(ox + 2 * p.x, oy + 2 * p.y, farbe);
-				bmd.setPixel32(ox + Math.round((2 * p.x + 2 * q.x) / 2), oy + Math.round((2 * p.y + 2 * q.y) / 2), farbe);
-				bmd.setPixel32(ox + 2 * q.x, oy + 2 * q.y, farbe);
+
+				inline function sp(x:Int, y:Int, farbe:Int):Void
+				{
+					if (farbe == 0xffff0000 && ((x + y) % 2 == 0))
+					{
+						farbe = 0xffffff00;
+					}
+					bmd.setPixel32(x, y, farbe);
+				}
+				sp(ox + 2 * p.x, oy + 2 * p.y, farbe);
+				sp(ox + Math.round((2 * p.x + 2 * q.x) / 2), oy + Math.round((2 * p.y + 2 * q.y) / 2), farbe);
+				sp(ox + 2 * q.x, oy + 2 * q.y, farbe);
 
 				var dx = q.x - p.x;
 				var dy = q.y - p.y;
@@ -320,11 +329,11 @@ class WireSquare
 				trace(StringTools.hex(left_pixel, 8), StringTools.hex(right_pixel, 8));
 				if (left_pixel == farbe)
 				{
-					bmd.setPixel32(ox + Math.round((2 * left_x + 2 * q.x) / 2), oy + Math.round((2 * left_y + 2 * q.y) / 2), farbe_light);
+					sp(ox + Math.round((2 * left_x + 2 * q.x) / 2), oy + Math.round((2 * left_y + 2 * q.y) / 2), farbe_light);
 				}
 				if (right_pixel == farbe)
 				{
-					bmd.setPixel32(ox + Math.round((2 * right_x + 2 * q.x) / 2), oy + Math.round((2 * right_y + 2 * q.y) / 2), farbe_light);
+					sp(ox + Math.round((2 * right_x + 2 * q.x) / 2), oy + Math.round((2 * right_y + 2 * q.y) / 2), farbe_light);
 				}
 			}
 		}
