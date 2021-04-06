@@ -4,10 +4,12 @@ import DirUtils.Position;
 import KachelInhalt.KachelZustand;
 import Komponent.KomponentKachel;
 import flixel.FlxG;
+import flixel.FlxObject;
 import flixel.FlxSprite;
 import flixel.FlxState;
 import flixel.group.FlxGroup;
 import flixel.input.keyboard.FlxKey;
+import flixel.math.FlxPoint;
 import flixel.math.FlxRandom;
 import flixel.text.FlxBitmapText;
 import flixel.ui.FlxSpriteButton;
@@ -50,6 +52,11 @@ class PlayState extends FlxState
 	var komponentTaste:FlxMySpriteButton;
 	var komponentTaste_ausgewaehlt:FlxMySpriteSelectedButton;
 	var komponentText:FlxBitmapText;
+	var tooltipboundary:FlxSprite;
+	var tooltipbg:FlxSprite;
+	var tooltip:FlxBitmapText;
+
+	var tooltips:Map<FlxObject, String> = [];
 
 	public static var charIndices:Map<String, Int> = [
 		"a" => 0, "b" => 1, "c" => 2, "d" => 3, "e" => 4, "f" => 5, "g" => 6, "h" => 7, "i" => 8, "j" => 9, "k" => 10, "l" => 11, "m" => 12, "n" => 13,
@@ -195,6 +202,7 @@ class PlayState extends FlxState
 		makeSaleBtn = new FlxBitmapTextButtonLowRes(104, 40, "Make Sale", onMakeSale);
 		makeSaleBtn.label.font = TitleScreen.fontAngelCode;
 		makeSaleBtn.color = PlayState.COL_BG;
+		tooltips[makeSaleBtn] = "Click on this to sell close the contract and sell the system!";
 
 		add(makeSaleBtn);
 
@@ -293,6 +301,7 @@ class PlayState extends FlxState
 
 		drehBtn = new FlxIconButton(43 + 12 * kacheltasten.length, 26, "assets/images/audio_icon_turn.png", 11, 11, () -> onDrehClick(true));
 		add(drehBtn);
+		tooltips[makeSaleBtn] = "Rotate (R or mousewheel)";
 
 		var schaltflaeche_gummi_ausgewaehlt = new FlxMySpriteSelectedButton(43 + 12 * kacheltasten.length + 12, 26, 11, 11,
 			new FlxSprite(0, 0, "assets/images/gummi_sprite.png"), "assets/images/sprite_btn_bg_small.png");
@@ -306,6 +315,23 @@ class PlayState extends FlxState
 		auswahltasten.push(gummiBtn);
 
 		onKachelAuswahl(1);
+
+		tooltipboundary = new FlxSprite(0, 0);
+		tooltipboundary.makeGraphic(1, 1, FlxColor.BLACK);
+
+		tooltipbg = new FlxSprite(0, 0);
+		tooltipbg.makeGraphic(1, 1, COL_BG);
+
+		tooltip = new FlxBitmapText(TitleScreen.fontAngelCode);
+		tooltip.x = 5;
+		tooltip.y = 5;
+		tooltip.color = FlxColor.BLACK;
+		tooltip.backgroundColor = FlxColor.RED;
+		tooltip.text = "Oh nice!";
+
+		add(tooltipboundary);
+		add(tooltipbg);
+		add(tooltip);
 	}
 
 	public var zustand:Zustand;
@@ -373,6 +399,77 @@ class PlayState extends FlxState
 			case Leer:
 				return Leer;
 		}
+	}
+
+	private function updateHinweise():Void
+	{
+		if (FlxG.keys.justPressed.R)
+		{
+			onDrehClick(true);
+		}
+		var mx = FlxG.mouse.x;
+		var my = FlxG.mouse.y;
+
+		var gefunden = false;
+		for (button => tip in tooltips)
+		{
+			if (button.overlapsPoint(new FlxPoint(mx, my)))
+			{
+				tooltip.text = tip;
+				tooltip.autoSize = false;
+				tooltip.multiLine = true;
+				tooltip.wordWrap = true;
+
+				tooltip.fieldWidth = 40;
+
+				tooltip.draw(); // update
+
+				tooltip.x = mx + 2;
+				tooltip.y = my - tooltip.height - 5;
+				gefunden = true;
+			}
+		}
+
+		if (!gefunden)
+		{
+			tooltipbg.visible = false;
+			tooltipboundary.visible = false;
+			tooltip.visible = false;
+			return;
+		}
+
+		tooltipbg.visible = true;
+		tooltipboundary.visible = true;
+		tooltip.visible = true;
+
+		if (tooltip.x + tooltip.width + 3 > FlxG.width)
+		{
+			tooltip.x = FlxG.width - 3 - tooltip.width - 1;
+		}
+		if (tooltip.y + tooltip.height + 3 > FlxG.height)
+		{
+			tooltip.y = FlxG.height - 3 - tooltip.height - 1;
+		}
+
+		if (tooltip.y < 2)
+		{
+			tooltip.y = 2;
+		}
+		if (tooltip.x < 2)
+		{
+			tooltip.x = 2;
+		}
+
+		tooltipbg.scale.x = tooltip.width + 2;
+		tooltipbg.scale.y = tooltip.height + 2;
+		tooltipbg.x = tooltip.x - 1;
+		tooltipbg.y = tooltip.y - 1;
+		tooltipbg.updateHitbox();
+		tooltipboundary.scale.x = tooltip.width + 4;
+		tooltipboundary.scale.y = tooltip.height + 4;
+		tooltipboundary.x = tooltip.x - 2;
+		tooltipboundary.y = tooltip.y - 2;
+		tooltipboundary.updateHitbox();
 	}
 
 	override public function update(elapsed:Float)
@@ -519,5 +616,7 @@ class PlayState extends FlxState
 		{
 			ausgewaehlterKachel_Spr.alpha = 0.0;
 		}
+
+		updateHinweise();
 	}
 }
