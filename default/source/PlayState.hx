@@ -12,6 +12,7 @@ import flixel.input.keyboard.FlxKey;
 import flixel.math.FlxPoint;
 import flixel.math.FlxRandom;
 import flixel.text.FlxBitmapText;
+import flixel.ui.FlxButton;
 import flixel.ui.FlxSpriteButton;
 import flixel.util.FlxColor;
 
@@ -140,6 +141,7 @@ class PlayState extends FlxState
 	var mutedBtn:FlxIconButton;
 	var unmutedBtn:FlxIconButton;
 	var helpBtn:FlxIconButton;
+	var drehBtnDisabled:FlxSprite;
 	var drehBtn:FlxIconButton;
 	var gummiBtn:FlxMySpriteButton;
 	var zustandSprite:FlxSprite;
@@ -188,6 +190,17 @@ class PlayState extends FlxState
 			ausgewaehlterKachel = WireSquare(kachelleiste[i - 1], Geplant);
 		}
 		zustand.render(zustandSprite.pixels, ausgewaehlterKachelIndex == 0);
+
+		if (ausgewaehlterKachelIndex == 4)
+		{
+			drehBtn.visible = false;
+			drehBtnDisabled.visible = true;
+		}
+		else
+		{
+			drehBtn.visible = true;
+			drehBtnDisabled.visible = false;
+		}
 	}
 
 	override public function create()
@@ -300,6 +313,9 @@ class PlayState extends FlxState
 		}
 
 		drehBtn = new FlxIconButton(43 + 12 * kacheltasten.length, 26, "assets/images/audio_icon_turn.png", 11, 11, () -> onDrehClick(true));
+		drehBtnDisabled = new FlxSprite(drehBtn.x, drehBtn.y, "assets/images/dreh_disabled.png");
+		add(drehBtnDisabled);
+		drehBtnDisabled.visible = false;
 		add(drehBtn);
 		tooltips[makeSaleBtn] = "Rotate (R or mousewheel)";
 
@@ -413,7 +429,7 @@ class PlayState extends FlxState
 		var gefunden = false;
 		for (button => tip in tooltips)
 		{
-			if (button.overlapsPoint(new FlxPoint(mx, my)))
+			if (button.visible && button.overlapsPoint(new FlxPoint(mx, my)))
 			{
 				tooltip.text = tip;
 				tooltip.autoSize = false;
