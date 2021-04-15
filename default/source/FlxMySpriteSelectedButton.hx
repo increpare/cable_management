@@ -8,10 +8,21 @@ import flixel.util.FlxColor;
 
 class FlxMySpriteSelectedButton extends FlxTypedGroup<FlxSprite>
 {
+	public var bg:FlxSprite;
+
+	private var spr:FlxSprite;
+
+	public function setSprite(s:FlxSprite)
+	{
+		spr.loadGraphicFromSprite(s);
+		spr.x = bg.x + (bg.width / 2) - spr.width / 2;
+		spr.y = bg.y + (bg.height / 2) - spr.height / 2;
+	}
+
 	public function new(X:Float = 0, Y:Float = 0, w:Int, h:Int, sprite:FlxSprite, bg_image:FlxGraphicAsset)
 	{
 		super();
-		var bg = new FlxSprite(w, h);
+		bg = new FlxSprite(w, h);
 		bg.loadGraphic(bg_image, true, w, h);
 		bg.animation.add("selected", [3], 1, false);
 		bg.animation.play("selected", true, false);
@@ -21,6 +32,7 @@ class FlxMySpriteSelectedButton extends FlxTypedGroup<FlxSprite>
 
 		sprite.x = X + (w / 2) - sprite.width / 2;
 		sprite.y = Y + (h / 2) - sprite.height / 2;
+		spr = sprite;
 		add(sprite);
 	}
 

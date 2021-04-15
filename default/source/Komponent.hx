@@ -114,7 +114,7 @@ class KomponentKachel
 				farbe = col;
 			}
 			var pos = connektorcoordinaten[i];
-			trace(StringTools.hex(farbe, 8));
+			// trace(StringTools.hex(farbe, 8));
 			bmd.setPixel32(offsetX + 2 * pos.x, offsetY + 2 * pos.y, farbe);
 			if (input == false)
 			{
@@ -339,6 +339,69 @@ class Komponent
 		}
 		trace("ERROR: nothing found at " + x + "," + y);
 		return 0;
+	}
+
+	public static function schattenFreiplatzzahl(silhouetteString:String):Int
+	{
+		var silhouetteraster = silhouetteString.split("|");
+
+		// pad with 0s
+		silhouetteraster = silhouetteraster.map(a -> "0" + a + "0");
+		var breite = silhouetteraster[0].length;
+		var paddingrow = "";
+		for (i in 0...breite)
+		{
+			paddingrow += "0";
+		}
+		silhouetteraster.insert(0, paddingrow);
+		silhouetteraster.insert(silhouetteraster.length, paddingrow);
+
+		// zufällige drehung NO don't do this
+
+		var freiplatzzahl:Int = 0;
+		// erst bastele kacheln mit offsets
+		for (y => rowstring in silhouetteraster)
+		{
+			for (x => char in rowstring.split(""))
+			{
+				if (char == "1")
+				{
+					if (silhouetteraster[y - 1].charAt(x) == '1')
+					{
+						// etwas daroben
+					}
+					else
+					{
+						freiplatzzahl += 2;
+					}
+					if (silhouetteraster[y + 1].charAt(x) == '1')
+					{
+						// etwas darunter
+					}
+					else
+					{
+						freiplatzzahl += 2;
+					}
+					if (silhouetteraster[y].charAt(x - 1) == '1')
+					{
+						// etwas links
+					}
+					else
+					{
+						freiplatzzahl += 2;
+					}
+					if (silhouetteraster[y].charAt(x + 1) == '1')
+					{
+						// etwas rechts
+					}
+					else
+					{
+						freiplatzzahl += 2;
+					}
+				}
+			}
+		}
+		return freiplatzzahl;
 	}
 
 	public static function vonSilhouette(name:String, wert:Int, silhouetteString:String, gewunschteVerbindungen:Array<Int>, initial:Bool):Komponent

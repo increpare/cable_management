@@ -326,7 +326,7 @@ class WireSquare
 
 				var left_pixel = bmd.getPixel32(ox + Math.round((2 * left_x + 2 * q.x) / 2), oy + Math.round((2 * left_y + 2 * q.y) / 2));
 				var right_pixel = bmd.getPixel32(ox + Math.round((2 * right_x + 2 * q.x) / 2), oy + Math.round((2 * right_y + 2 * q.y) / 2));
-				trace(StringTools.hex(left_pixel, 8), StringTools.hex(right_pixel, 8));
+				// trace(StringTools.hex(left_pixel, 8), StringTools.hex(right_pixel, 8));
 				if (left_pixel == farbe)
 				{
 					sp(ox + Math.round((2 * left_x + 2 * q.x) / 2), oy + Math.round((2 * left_y + 2 * q.y) / 2), farbe_light);

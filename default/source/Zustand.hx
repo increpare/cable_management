@@ -1,4 +1,5 @@
 import DirUtils.Position;
+import KachelInhalt.KachelZustand;
 import flixel.util.FlxColor;
 import lime.math.Rectangle;
 import openfl.display.BitmapData;
@@ -25,12 +26,17 @@ class Zustand
 	public var breite:Int;
 	public var hoehe:Int;
 	public var Inhalt:Array<KachelInhalt>;
+	public var geloest:String;
+	public var komponentzahl:Int;
+	public var offeneAusgaben:Array<Int>;
 
 	public function new(breite:Int, hoehe:Int)
 	{
+		this.offeneAusgaben = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 		this.breite = breite;
 		this.hoehe = hoehe;
 		this.Inhalt = [];
+		this.geloest = "TRUE";
 	}
 
 	public function getInhaltMask(nurfest:Bool, ignorieregeplanntekomponent:Bool):Array<Position>
@@ -153,6 +159,11 @@ class Zustand
 
 	public function rechneSignaleAus():Void
 	{
+		for (i in 0...offeneAusgaben.length)
+		{
+			offeneAusgaben[i] = 0;
+		}
+
 		for (ki in Inhalt)
 		{
 			switch (ki)
@@ -174,6 +185,10 @@ class Zustand
 
 		var SignalTeile:Array<ConnectionData> = [];
 		var id_counter = 0;
+
+		komponentzahl = 0;
+		geloest = "No components placed yet.";
+
 		for (ki in Inhalt)
 		{
 			switch (ki)
@@ -201,6 +216,12 @@ class Zustand
 						SignalTeile.push(ke);
 					}
 				case Komponent(k, z):
+					komponentzahl++;
+					if (z == Geplant)
+					{
+						geloest = "TRUE";
+					}
+					if (z == KachelZustand.Geplant) {}
 					k.hatstrom = k.initial;
 					for (kc in k.kacheln)
 					{
@@ -285,10 +306,12 @@ class Zustand
 						var farbe = k.GetVerbindungFarbe(cd.kx, cd.ky, cd.kcon);
 						if (farbe > 0 && farbe != 5)
 						{
+							offeneAusgaben[farbe]++;
 							ausgaben.push(cd);
 						}
 						else if (farbe < 0)
 						{
+							offeneAusgaben[-farbe]--;
 							eingaben.push(cd);
 						}
 					case Leer:
@@ -298,14 +321,20 @@ class Zustand
 			if (ausgaben.length == 0)
 			{
 				gruppeFarbe = 4;
+				if (eingaben.length > 0)
+				{
+					geloest = "Not all inputs are connected.";
+				}
 			}
 			else if (ausgaben.length > 1)
 			{
 				gruppeFarbe = 5; // Farbe der Ungueltigkeit
+				geloest = "Multiple outputs are connected together.";
 			}
 			else if (eingaben.length > 1)
 			{
 				gruppeFarbe = 5; // Farbe der Ungueltigkeit
+				geloest = "Multiple inputs are connected together";
 			}
 			else if (eingaben.length == 1)
 			{ // eine Aufgabe, eine Eingabe
@@ -325,13 +354,19 @@ class Zustand
 				};
 				var ausgabe_farbe = ausgabekomponent.GetVerbindungFarbe(ausgabe_kd.kx, ausgabe_kd.ky, ausgabe_kd.kcon);
 
-				if (eingabe_farbe == -ausgabe_farbe)
+				if (eingabekomponent.x == ausgabekomponent.x && eingabekomponent.y == ausgabekomponent.y)
+				{
+					gruppeFarbe = 5;
+					geloest = "Can't connect component to itself.";
+				}
+				else if (eingabe_farbe == -ausgabe_farbe)
 				{
 					gruppeFarbe = ausgabe_farbe - 1;
 				}
 				else
 				{
 					gruppeFarbe = 5;
+					geloest = "Trying to connect two sockets of different colours.";
 				}
 			}
 			else
